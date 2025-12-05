@@ -117,7 +117,7 @@ export const BandService = {
         .select(`
             role,
             bands (
-                id, name, image_url, join_code, payment_qr_url, payment_phone_number
+                id, name, image_url, join_code, payment_qr_url, payment_phone_number, show_payment_qr, show_payment_phone
             )
         `)
         .eq('user_id', user.id);
@@ -195,6 +195,8 @@ export const BandService = {
         imageUrl: bandData.image_url,
         paymentQrUrl: (bandData as any).payment_qr_url,
         paymentPhoneNumber: (bandData as any).payment_phone_number,
+        showPaymentQr: (bandData as any).show_payment_qr ?? true,
+        showPaymentPhone: (bandData as any).show_payment_phone ?? true,
         joinCode: bandData.join_code,
         members,
         inventory,
@@ -210,7 +212,13 @@ export const BandService = {
     
     const { data: band, error } = await supabase
         .from('bands')
-        .insert([{ name, image_url: imageUrl, join_code: joinCode }])
+        .insert([{ 
+            name, 
+            image_url: imageUrl, 
+            join_code: joinCode,
+            show_payment_qr: true,
+            show_payment_phone: true
+        }])
         .select()
         .single();
     
@@ -229,14 +237,16 @@ export const BandService = {
     return fullBand;
   },
   
-  updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string): Promise<void> => {
-    if (USE_MOCK) return MockBand.updateBandDetails(bandId, name, imageUrl, paymentQrUrl, paymentPhoneNumber);
+  updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string, showPaymentQr?: boolean, showPaymentPhone?: boolean): Promise<void> => {
+    if (USE_MOCK) return MockBand.updateBandDetails(bandId, name, imageUrl, paymentQrUrl, paymentPhoneNumber, showPaymentQr, showPaymentPhone);
     
     const updatePayload: any = { 
         name, 
         image_url: imageUrl,
         payment_qr_url: paymentQrUrl,
-        payment_phone_number: paymentPhoneNumber
+        payment_phone_number: paymentPhoneNumber,
+        show_payment_qr: showPaymentQr,
+        show_payment_phone: showPaymentPhone
     };
 
     const { error } = await supabase
@@ -505,7 +515,8 @@ const MockBand = {
         const newBand: Band = {
             id: generateId(), name, imageUrl, joinCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
             members: [{ ...user, role: UserRole.ADMIN }],
-            inventory: [], sales: [], pendingRequests: []
+            inventory: [], sales: [], pendingRequests: [],
+            showPaymentQr: true, showPaymentPhone: true
         };
         bands.push(newBand);
         localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
@@ -518,7 +529,7 @@ const MockBand = {
         }
         return newBand;
     },
-    updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string): Promise<void> => {
+    updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string, showPaymentQr?: boolean, showPaymentPhone?: boolean): Promise<void> => {
         const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
         const idx = bands.findIndex(b => b.id === bandId);
         if (idx !== -1) {
@@ -526,6 +537,8 @@ const MockBand = {
             if (imageUrl !== undefined) bands[idx].imageUrl = imageUrl;
             if (paymentQrUrl !== undefined) bands[idx].paymentQrUrl = paymentQrUrl;
             if (paymentPhoneNumber !== undefined) bands[idx].paymentPhoneNumber = paymentPhoneNumber;
+            if (showPaymentQr !== undefined) bands[idx].showPaymentQr = showPaymentQr;
+            if (showPaymentPhone !== undefined) bands[idx].showPaymentPhone = showPaymentPhone;
             localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
         }
     },

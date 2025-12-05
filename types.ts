@@ -54,6 +54,8 @@ export interface Band {
   imageUrl?: string;
   paymentQrUrl?: string; // New field for Payment QR Code
   paymentPhoneNumber?: string; // New field for Payment Phone Number
+  showPaymentQr?: boolean; // New toggle
+  showPaymentPhone?: boolean; // New toggle
   joinCode: string;
   members: BandMember[];
   inventory: Item[];

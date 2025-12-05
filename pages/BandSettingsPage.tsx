@@ -18,6 +18,11 @@ export default function BandSettingsPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [qrImage, setQrImage] = useState<File | null>(null);
   const [qrPreview, setQrPreview] = useState<string | null>(null);
+  
+  // Visibility Toggles
+  const [showQr, setShowQr] = useState(true);
+  const [showPhone, setShowPhone] = useState(true);
+
   const [loading, setLoading] = useState(false);
 
   // Team State
@@ -29,6 +34,8 @@ export default function BandSettingsPage() {
         setPhoneNumber(currentBand.paymentPhoneNumber || '');
         setLogoPreview(currentBand.imageUrl || null);
         setQrPreview(currentBand.paymentQrUrl || null);
+        setShowQr(currentBand.showPaymentQr ?? true);
+        setShowPhone(currentBand.showPaymentPhone ?? true);
     }
   }, [currentBand]);
 
@@ -72,7 +79,16 @@ export default function BandSettingsPage() {
             qrUrl = await ImageService.upload(qrImage);
         }
 
-        await BandService.updateBandDetails(currentBand.id, bandName, logoUrl, qrUrl, phoneNumber);
+        await BandService.updateBandDetails(
+            currentBand.id, 
+            bandName, 
+            logoUrl, 
+            qrUrl, 
+            phoneNumber,
+            showQr,
+            showPhone
+        );
+        
         await refreshData();
         alert('Настройки сохранены');
     } catch (e) {
@@ -168,11 +184,25 @@ export default function BandSettingsPage() {
                />
            </div>
 
-           {/* QR Code Upload */}
-            <div>
-               <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">QR-код для оплаты</label>
+           {/* QR Code Upload & Toggle */}
+            <div className="space-y-2">
+               <div className="flex items-center justify-between">
+                   <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pl-1">QR-код для оплаты</label>
+                   {canEditInfo && (
+                        <button 
+                            onClick={() => setShowQr(!showQr)}
+                            className={`flex items-center gap-2 px-2 py-1 rounded-lg text-[10px] font-bold uppercase transition-colors ${showQr ? 'bg-primary/20 text-primary' : 'bg-zinc-800 text-zinc-500'}`}
+                        >
+                            {showQr ? 'Показывать' : 'Скрыт'}
+                            <div className={`w-6 h-3 rounded-full relative transition-colors ${showQr ? 'bg-primary' : 'bg-zinc-600'}`}>
+                                <div className={`absolute top-0.5 w-2 h-2 rounded-full bg-white transition-transform ${showQr ? 'left-3.5' : 'left-0.5'}`}></div>
+                            </div>
+                        </button>
+                   )}
+               </div>
+               
                <div className="flex items-center gap-4">
-                   <div className="h-20 w-20 bg-black/40 border border-zinc-800 rounded-xl flex items-center justify-center overflow-hidden">
+                   <div className={`h-20 w-20 bg-black/40 border border-zinc-800 rounded-xl flex items-center justify-center overflow-hidden transition-opacity ${showQr ? 'opacity-100' : 'opacity-40'}`}>
                        {qrPreview ? (
                            <img src={qrPreview} className="w-full h-full object-cover" />
                        ) : (
@@ -192,10 +222,24 @@ export default function BandSettingsPage() {
                </div>
            </div>
 
-           {/* Phone Number Input */}
-           <div>
-               <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">Номер для перевода</label>
-               <div className="relative">
+           {/* Phone Number Input & Toggle */}
+           <div className="space-y-2">
+               <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest pl-1">Номер для перевода</label>
+                    {canEditInfo && (
+                        <button 
+                            onClick={() => setShowPhone(!showPhone)}
+                            className={`flex items-center gap-2 px-2 py-1 rounded-lg text-[10px] font-bold uppercase transition-colors ${showPhone ? 'bg-primary/20 text-primary' : 'bg-zinc-800 text-zinc-500'}`}
+                        >
+                            {showPhone ? 'Показывать' : 'Скрыт'}
+                            <div className={`w-6 h-3 rounded-full relative transition-colors ${showPhone ? 'bg-primary' : 'bg-zinc-600'}`}>
+                                <div className={`absolute top-0.5 w-2 h-2 rounded-full bg-white transition-transform ${showPhone ? 'left-3.5' : 'left-0.5'}`}></div>
+                            </div>
+                        </button>
+                   )}
+               </div>
+               
+               <div className={`relative transition-opacity ${showPhone ? 'opacity-100' : 'opacity-50'}`}>
                     <Phone className="absolute left-4 top-3.5 text-zinc-500" size={18} />
                     <input
                         type="text"

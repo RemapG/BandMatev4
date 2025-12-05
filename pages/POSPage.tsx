@@ -70,11 +70,14 @@ export default function POSPage() {
   const handleCheckoutClick = () => {
       if (cart.length === 0 || !user) return;
       
-      // Check if band has payment QR OR Phone Number
-      if (currentBand.paymentQrUrl || currentBand.paymentPhoneNumber) {
+      const hasQr = currentBand.paymentQrUrl && currentBand.showPaymentQr;
+      const hasPhone = currentBand.paymentPhoneNumber && currentBand.showPaymentPhone;
+
+      // Check if band has payment methods visible
+      if (hasQr || hasPhone) {
           setShowQrModal(true);
       } else {
-          // No QR/Phone, proceed directly
+          // No QR/Phone visible, proceed directly
           processTransaction();
       }
   };
@@ -314,7 +317,7 @@ export default function POSPage() {
                   <h3 className="text-2xl font-black text-white uppercase italic mb-6">Оплата</h3>
                   
                   {/* QR SECTION */}
-                  {currentBand.paymentQrUrl && (
+                  {currentBand.paymentQrUrl && currentBand.showPaymentQr && (
                       <div className="w-full mb-6">
                            <div className="p-4 bg-white rounded-2xl shadow-xl flex items-center justify-center">
                                <img src={currentBand.paymentQrUrl} alt="Payment QR" className="max-w-full h-48 object-contain" />
@@ -324,7 +327,7 @@ export default function POSPage() {
                   )}
 
                   {/* PHONE SECTION */}
-                  {currentBand.paymentPhoneNumber && (
+                  {currentBand.paymentPhoneNumber && currentBand.showPaymentPhone && (
                       <div className="w-full mb-8">
                           <p className="text-zinc-500 text-xs uppercase font-bold tracking-widest mb-2">Перевод по номеру</p>
                           <button 
