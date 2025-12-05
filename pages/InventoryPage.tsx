@@ -245,8 +245,8 @@ export default function InventoryPage() {
 
       {/* Edit/Add Modal (Refined Style) */}
       {isEditing && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] relative animate-slide-up">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in touch-none">
+          <div className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl overflow-y-auto overflow-x-hidden max-h-[90vh] relative animate-slide-up touch-pan-y overscroll-contain">
             <button 
                 onClick={() => setIsEditing(false)}
                 className="absolute top-6 right-6 text-zinc-500 hover:text-white p-2 bg-zinc-900 rounded-full"
