@@ -1,11 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { UserRole, BandMember } from '../types';
 import { BandService, ImageService } from '../services/storage';
-import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone, Trash2, AlertTriangle } from 'lucide-react';
+import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone, Trash2, AlertTriangle, ZoomIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Cropper from 'react-easy-crop';
+import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
 
 export default function BandSettingsPage() {
   const { currentBand, user, refreshData } = useApp();
@@ -29,6 +31,13 @@ export default function BandSettingsPage() {
   const [editingMember, setEditingMember] = useState<BandMember | null>(null);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
+  // Cropper State
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<PixelCrop | null>(null);
+  const [isCropping, setIsCropping] = useState(false);
+
   useEffect(() => {
     if (currentBand) {
         setBandName(currentBand.name);
@@ -39,6 +48,13 @@ export default function BandSettingsPage() {
         setShowPhone(currentBand.showPaymentPhone ?? true);
     }
   }, [currentBand]);
+
+  // Cleanup object URLs
+  useEffect(() => {
+    return () => {
+        if (imageSrc) URL.revokeObjectURL(imageSrc);
+    };
+  }, [imageSrc]);
 
   if (!currentBand || !user) return null;
 
@@ -52,8 +68,39 @@ export default function BandSettingsPage() {
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setBandLogo(file);
-      setLogoPreview(URL.createObjectURL(file));
+      // Use ObjectURL to open cropper immediately
+      const objectUrl = URL.createObjectURL(file);
+      setImageSrc(objectUrl);
+      setIsCropping(true);
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
+      e.target.value = ''; // Reset input
+    }
+  };
+
+  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: PixelCrop) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleSaveCrop = async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+    try {
+      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      if (croppedBlob) {
+        const file = new File([croppedBlob], `logo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setBandLogo(file);
+        
+        // Revoke old preview if it was a blob
+        if (logoPreview && logoPreview.startsWith('blob:')) {
+             URL.revokeObjectURL(logoPreview);
+        }
+        setLogoPreview(URL.createObjectURL(croppedBlob));
+        setIsCropping(false);
+        setImageSrc(null);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при обработке изображения');
     }
   };
 
@@ -466,6 +513,62 @@ export default function BandSettingsPage() {
                            )}
                       </div>
                   )}
+              </div>
+          </div>,
+          document.body
+      )}
+
+      {/* CROPPER MODAL (FOR LOGO) */}
+      {isCropping && imageSrc && createPortal(
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-fade-in touch-none">
+              <div className="relative flex-1 bg-black touch-none flex flex-col justify-center">
+                   <div className="absolute inset-0 top-0 bottom-20">
+                       <Cropper
+                        image={imageSrc}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={1}
+                        onCropChange={setCrop}
+                        onCropComplete={onCropComplete}
+                        onZoomChange={setZoom}
+                        cropShape="rect"
+                        showGrid={true}
+                        objectFit="contain"
+                       />
+                   </div>
+              </div>
+
+              <div className="bg-zinc-900 p-6 pb-safe border-t border-zinc-800 space-y-6 relative z-10">
+                  <div className="flex items-center gap-4">
+                      <ZoomIn size={20} className="text-zinc-500" />
+                      <input
+                        type="range"
+                        value={zoom}
+                        min={1}
+                        max={3}
+                        step={0.1}
+                        aria-labelledby="Zoom"
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                  </div>
+
+                  <div className="flex gap-4">
+                      <button 
+                        onClick={() => { setIsCropping(false); setImageSrc(null); }}
+                        className="flex-1 py-4 rounded-xl bg-zinc-800 text-white font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                      >
+                          <X size={18} />
+                          Отмена
+                      </button>
+                      <button 
+                        onClick={handleSaveCrop}
+                        className="flex-1 py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                      >
+                          <Check size={18} />
+                          Применить
+                      </button>
+                  </div>
               </div>
           </div>,
           document.body
