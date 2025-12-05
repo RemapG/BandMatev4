@@ -340,12 +340,16 @@ export default function BandSettingsPage() {
                 className={`w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between transition-all text-left group ${isAdmin ? 'hover:bg-zinc-800 hover:border-zinc-700 active:scale-[0.99]' : ''}`}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border ${
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border overflow-hidden shrink-0 ${
                     member.role === UserRole.ADMIN 
                         ? 'bg-primary/10 border-primary/20 text-primary' 
                         : (member.role === UserRole.MODERATOR ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-zinc-800 border-zinc-700 text-zinc-500')
                   }`}>
-                    {getRoleIcon(member.role)}
+                    {member.avatarUrl ? (
+                         <img src={member.avatarUrl} alt={member.name} className="w-full h-full object-cover" />
+                    ) : (
+                         getRoleIcon(member.role)
+                    )}
                   </div>
                   <div>
                     <div className="font-medium text-white flex items-center gap-2">
@@ -413,7 +417,12 @@ export default function BandSettingsPage() {
                   
                   <div className="mb-6">
                       <div className="text-xs text-zinc-500 font-bold uppercase tracking-widest mb-1">Настройка доступа</div>
-                      <h3 className="text-xl font-bold text-white">{editingMember.name}</h3>
+                      <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                          {editingMember.avatarUrl && (
+                              <img src={editingMember.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-zinc-700" alt="" />
+                          )}
+                          {editingMember.name}
+                      </h3>
                       {editingMember.description && (
                           <div className="mt-2 text-sm text-zinc-400 bg-zinc-800/50 p-3 rounded-xl border border-zinc-800 italic">
                               "{editingMember.description}"
