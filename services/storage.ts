@@ -325,6 +325,80 @@ export const BandService = {
     }
   },
 
+  updateSale: async (bandId: string, originalSale: Sale, updatedSale: Sale) => {
+    if (USE_MOCK) return MockBand.updateSale(bandId, originalSale, updatedSale);
+
+    // 1. Revert original stock
+    const { data: bandItems } = await supabase.from('items').select('*').eq('band_id', bandId);
+    if (!bandItems) throw new Error("Inventory not found");
+
+    // Revert logic
+    for (const oldItem of originalSale.items) {
+      const dbItem = bandItems.find((i: any) => i.id === oldItem.itemId);
+      if (dbItem && dbItem.variants) {
+         const variants = dbItem.variants as any[];
+         const vIdx = variants.findIndex((v: any) => v.label === oldItem.variantLabel);
+         if (vIdx !== -1) {
+             variants[vIdx].stock += oldItem.quantity; // Add back
+             await supabase.from('items').update({ variants: variants }).eq('id', dbItem.id);
+         }
+      }
+    }
+
+    // 2. Apply new stock (Refresh bandItems to ensure we have latest state after revert, 
+    // although serial execution above should be fine, let's just reuse bandItems but update the specific local object reference if needed.
+    // Actually, safer to re-fetch or just modify local logic carefully. For simplicity in this context, we re-fetch to avoid race conditions with previous awaits).
+    const { data: refreshedItems } = await supabase.from('items').select('*').eq('band_id', bandId);
+    if (!refreshedItems) throw new Error("Inventory error");
+
+    for (const newItem of updatedSale.items) {
+        const dbItem = refreshedItems.find((i: any) => i.id === newItem.itemId);
+        if (dbItem && dbItem.variants) {
+           const variants = dbItem.variants as any[];
+           const vIdx = variants.findIndex((v: any) => v.label === newItem.variantLabel);
+           if (vIdx !== -1) {
+               variants[vIdx].stock -= newItem.quantity; // Deduct new
+               await supabase.from('items').update({ variants: variants }).eq('id', dbItem.id);
+           }
+        }
+    }
+
+    // 3. Update Sale Record
+    const { error } = await supabase
+      .from('sales')
+      .update({
+          total: updatedSale.total,
+          items: updatedSale.items
+      })
+      .eq('id', originalSale.id);
+
+    if (error) throw new Error(error.message);
+  },
+
+  deleteSale: async (bandId: string, sale: Sale) => {
+    if (USE_MOCK) return MockBand.deleteSale(bandId, sale);
+
+    // 1. Revert stock
+    const { data: bandItems } = await supabase.from('items').select('*').eq('band_id', bandId);
+    if (bandItems) {
+        for (const item of sale.items) {
+            const dbItem = bandItems.find((i: any) => i.id === item.itemId);
+            if (dbItem && dbItem.variants) {
+                const variants = dbItem.variants as any[];
+                const vIdx = variants.findIndex((v: any) => v.label === item.variantLabel);
+                if (vIdx !== -1) {
+                    variants[vIdx].stock += item.quantity;
+                    await supabase.from('items').update({ variants: variants }).eq('id', dbItem.id);
+                }
+            }
+        }
+    }
+
+    // 2. Delete Record
+    const { error } = await supabase.from('sales').delete().eq('id', sale.id);
+    if (error) throw new Error(error.message);
+  },
+
   updateInventory: async (bandId: string, item: Item) => {
     if (USE_MOCK) return MockBand.updateInventory(bandId, item);
     
@@ -477,6 +551,48 @@ const MockBand = {
             const v = item?.variants.find(v => v.label === si.variantLabel);
             if (v) v.stock -= si.quantity;
         });
+        localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
+    },
+    updateSale: (bandId: string, originalSale: Sale, updatedSale: Sale) => {
+        const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
+        const band = bands.find(b => b.id === bandId);
+        if (!band) return;
+
+        // Revert old stock
+        originalSale.items.forEach(si => {
+            const item = band.inventory.find(i => i.id === si.itemId);
+            const v = item?.variants.find(v => v.label === si.variantLabel);
+            if (v) v.stock += si.quantity;
+        });
+
+        // Apply new stock
+        updatedSale.items.forEach(si => {
+            const item = band.inventory.find(i => i.id === si.itemId);
+            const v = item?.variants.find(v => v.label === si.variantLabel);
+            if (v) v.stock -= si.quantity;
+        });
+
+        // Update Sale record
+        const saleIndex = band.sales.findIndex(s => s.id === originalSale.id);
+        if (saleIndex !== -1) {
+            band.sales[saleIndex] = updatedSale;
+        }
+
+        localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
+    },
+    deleteSale: (bandId: string, sale: Sale) => {
+        const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
+        const band = bands.find(b => b.id === bandId);
+        if (!band) return;
+
+        // Revert stock
+        sale.items.forEach(si => {
+            const item = band.inventory.find(i => i.id === si.itemId);
+            const v = item?.variants.find(v => v.label === si.variantLabel);
+            if (v) v.stock += si.quantity;
+        });
+
+        band.sales = band.sales.filter(s => s.id !== sale.id);
         localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
     },
     updateInventory: (bandId: string, item: Item) => {

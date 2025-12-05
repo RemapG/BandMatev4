@@ -1,13 +1,25 @@
+
+
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../App';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, DollarSign, Music, ChevronDown, PlusCircle, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, DollarSign, Music, ChevronDown, PlusCircle, ArrowUpRight, Edit2, Minus, Plus, Trash2, X, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Sale, SaleItem, UserRole } from '../types';
+import { BandService } from '../services/storage';
 
 export default function DashboardPage() {
-  const { currentBand, userBands, switchBand } = useApp();
+  const { currentBand, userBands, switchBand, currentUserRole, refreshData } = useApp();
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Edit Sale State
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [editedItems, setEditedItems] = useState<SaleItem[]>([]);
+  const [isDeletingSale, setIsDeletingSale] = useState(false);
+  
+  // Permissions
+  const canEditSales = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.MODERATOR;
 
   // Stats
   const stats = useMemo(() => {
@@ -40,6 +52,71 @@ export default function DashboardPage() {
     if (!currentBand) return [];
     return [...currentBand.sales].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
   }, [currentBand]);
+
+  // --- Handlers ---
+  const handleOpenEdit = (sale: Sale) => {
+      if (!canEditSales) return;
+      setEditingSale(sale);
+      setEditedItems(JSON.parse(JSON.stringify(sale.items))); // Deep copy
+      setIsDeletingSale(false);
+  };
+
+  const handleUpdateQuantity = (idx: number, delta: number) => {
+      const newItems = [...editedItems];
+      const item = newItems[idx];
+      const newQty = item.quantity + delta;
+      
+      if (newQty > 0) {
+          item.quantity = newQty;
+          setEditedItems(newItems);
+      }
+  };
+
+  const handleRemoveItem = (idx: number) => {
+      const newItems = [...editedItems];
+      newItems.splice(idx, 1);
+      setEditedItems(newItems);
+  };
+
+  const handleSaveSale = async () => {
+      if (!currentBand || !editingSale) return;
+
+      if (editedItems.length === 0) {
+          // If all items removed, treat as delete
+          setIsDeletingSale(true);
+          return;
+      }
+
+      const newTotal = editedItems.reduce((acc, item) => acc + (item.priceAtSale * item.quantity), 0);
+      const updatedSale: Sale = {
+          ...editingSale,
+          items: editedItems,
+          total: newTotal
+      };
+
+      try {
+          await BandService.updateSale(currentBand.id, editingSale, updatedSale);
+          await refreshData();
+          setEditingSale(null);
+      } catch (e) {
+          console.error(e);
+          alert("Ошибка при обновлении продажи");
+      }
+  };
+
+  const handleDeleteSale = async () => {
+      if (!currentBand || !editingSale) return;
+      try {
+          await BandService.deleteSale(currentBand.id, editingSale);
+          await refreshData();
+          setEditingSale(null);
+      } catch (e) {
+          console.error(e);
+          alert("Ошибка при удалении продажи");
+      }
+  };
+
+  const editedTotal = editedItems.reduce((acc, item) => acc + (item.priceAtSale * item.quantity), 0);
 
   if (!currentBand) return null;
 
@@ -185,10 +262,16 @@ export default function DashboardPage() {
          </div>
          <div className="space-y-3">
             {recentSales.map(sale => (
-                <div key={sale.id} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 p-4 rounded-2xl hover:bg-zinc-800 transition-colors">
+                <div 
+                    key={sale.id} 
+                    onClick={() => handleOpenEdit(sale)}
+                    className={`flex items-center justify-between bg-zinc-900 border border-zinc-800 p-4 rounded-2xl transition-all ${
+                        canEditSales ? 'cursor-pointer hover:bg-zinc-800 active:scale-[0.99] group' : ''
+                    }`}
+                >
                     <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-zinc-800 to-black border border-zinc-700 flex items-center justify-center text-zinc-400 font-mono text-xs">
-                            ₽
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-zinc-800 to-black border border-zinc-700 flex items-center justify-center text-zinc-400 font-mono text-xs relative group-hover:border-zinc-500 transition-colors">
+                            {canEditSales ? <Edit2 size={12} className="text-zinc-500 group-hover:text-white" /> : '₽'}
                         </div>
                         <div>
                             <div className="text-white font-bold">{sale.total} ₽</div>
@@ -214,6 +297,96 @@ export default function DashboardPage() {
             )}
          </div>
       </div>
+
+      {/* EDIT SALE MODAL */}
+      {editingSale && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in touch-none">
+              <div className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] relative animate-slide-up touch-pan-y">
+                  <button 
+                    onClick={() => setEditingSale(null)}
+                    className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2 rounded-full hover:bg-zinc-900"
+                  >
+                      <X size={20} />
+                  </button>
+
+                  <div className="mb-6">
+                      <div className="text-xs text-zinc-500 font-bold uppercase tracking-widest mb-1">Редактирование</div>
+                      <h3 className="text-xl font-bold text-white">Продажа от {new Date(editingSale.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</h3>
+                      <p className="text-xs text-zinc-500">Продавец: {editingSale.sellerName}</p>
+                  </div>
+
+                  <div className="space-y-3 mb-6">
+                      {editedItems.map((item, idx) => (
+                          <div key={`${item.itemId}-${idx}`} className="bg-zinc-900/50 p-3 rounded-xl border border-zinc-800 flex items-center justify-between">
+                              <div className="flex-1">
+                                  <div className="text-white font-medium text-sm line-clamp-1">{item.name}</div>
+                                  <div className="text-xs text-zinc-500">{item.variantLabel} • {item.priceAtSale} ₽</div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3">
+                                  <div className="flex items-center bg-black rounded-lg p-1 border border-zinc-800">
+                                      <button 
+                                        onClick={() => handleUpdateQuantity(idx, -1)}
+                                        className="w-7 h-7 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded transition-colors"
+                                      >
+                                          <Minus size={12} />
+                                      </button>
+                                      <span className="w-8 text-center font-mono text-sm font-bold text-white">{item.quantity}</span>
+                                      <button 
+                                        onClick={() => handleUpdateQuantity(idx, 1)}
+                                        className="w-7 h-7 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded transition-colors"
+                                      >
+                                          <Plus size={12} />
+                                      </button>
+                                  </div>
+                                  <button 
+                                    onClick={() => handleRemoveItem(idx)}
+                                    className="p-2 text-zinc-600 hover:text-red-500 transition-colors"
+                                  >
+                                      <Trash2 size={16} />
+                                  </button>
+                              </div>
+                          </div>
+                      ))}
+                      {editedItems.length === 0 && (
+                          <div className="text-center py-8 text-zinc-500 text-sm border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
+                              Все товары удалены.
+                              <br/>Сохранение отменит продажу.
+                          </div>
+                      )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between mb-6 p-4 bg-zinc-900 rounded-xl border border-zinc-800">
+                      <span className="text-zinc-500 text-sm font-bold uppercase">Итого</span>
+                      <span className="text-xl font-black text-white">{editedTotal} ₽</span>
+                  </div>
+
+                  <button
+                    onClick={handleSaveSale}
+                    className="w-full py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 mb-3"
+                  >
+                      {editedItems.length === 0 ? 'Удалить Продажу' : 'Сохранить Изменения'}
+                  </button>
+                  
+                  {!isDeletingSale ? (
+                      <button
+                        onClick={() => setIsDeletingSale(true)}
+                        className="w-full py-3 text-red-500/70 hover:text-red-500 font-bold text-xs uppercase tracking-widest transition-colors"
+                      >
+                          Аннулировать Чек
+                      </button>
+                  ) : (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 animate-fade-in">
+                          <p className="text-red-400 text-xs text-center mb-3">Товары вернутся на склад. Вы уверены?</p>
+                          <div className="flex gap-2">
+                              <button onClick={() => setIsDeletingSale(false)} className="flex-1 py-2 bg-zinc-800 text-white text-xs rounded-lg font-bold">Отмена</button>
+                              <button onClick={handleDeleteSale} className="flex-1 py-2 bg-red-600 text-white text-xs rounded-lg font-bold">Да, удалить</button>
+                          </div>
+                      </div>
+                  )}
+              </div>
+          </div>
+      )}
 
     </div>
   );
