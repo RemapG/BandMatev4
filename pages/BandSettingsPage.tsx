@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { UserRole, BandMember } from '../types';
 import { BandService, ImageService } from '../services/storage';
-import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone } from 'lucide-react';
+import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone, Trash2, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function BandSettingsPage() {
@@ -27,6 +27,7 @@ export default function BandSettingsPage() {
 
   // Team State
   const [editingMember, setEditingMember] = useState<BandMember | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   useEffect(() => {
     if (currentBand) {
@@ -114,6 +115,27 @@ export default function BandSettingsPage() {
         console.error("Failed to update role", e);
         alert("Ошибка при обновлении роли");
     }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!editingMember) return;
+    setLoading(true);
+    try {
+        await BandService.removeMember(currentBand.id, editingMember.id);
+        await refreshData();
+        setEditingMember(null);
+        setShowRemoveConfirm(false);
+    } catch (e) {
+        console.error(e);
+        alert('Ошибка при удалении участника');
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const openMemberEdit = (member: BandMember) => {
+      setEditingMember(member);
+      setShowRemoveConfirm(false);
   };
 
   const getRoleLabel = (role: UserRole) => {
@@ -266,7 +288,7 @@ export default function BandSettingsPage() {
             {currentBand.members.map(member => (
               <button 
                 key={member.id} 
-                onClick={() => isAdmin && setEditingMember(member)}
+                onClick={() => isAdmin && openMemberEdit(member)}
                 disabled={!isAdmin}
                 className={`w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between transition-all text-left group ${isAdmin ? 'hover:bg-zinc-800 hover:border-zinc-700 active:scale-[0.99]' : ''}`}
               >
@@ -407,6 +429,43 @@ export default function BandSettingsPage() {
                            {editingMember.role === UserRole.ADMIN && <Check className="ml-auto text-primary" size={20} />}
                       </button>
                   </div>
+                  
+                  {/* Remove User Section */}
+                  {editingMember.id !== user.id && (
+                      <div className="mt-8 border-t border-zinc-800 pt-6">
+                           {!showRemoveConfirm ? (
+                               <button 
+                                onClick={() => setShowRemoveConfirm(true)}
+                                className="w-full text-center text-red-500 font-bold text-xs uppercase tracking-widest hover:text-red-400 transition-colors flex items-center justify-center gap-2 p-2 rounded-lg hover:bg-red-500/10"
+                               >
+                                   <Trash2 size={16} />
+                                   Исключить из группы
+                               </button>
+                           ) : (
+                               <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 animate-fade-in">
+                                  <div className="flex items-center justify-center gap-2 text-red-400 mb-4">
+                                      <AlertTriangle size={18} />
+                                      <span className="text-sm font-bold">Вы уверены?</span>
+                                  </div>
+                                  <div className="flex gap-3">
+                                      <button 
+                                        onClick={() => setShowRemoveConfirm(false)}
+                                        className="flex-1 py-3 bg-zinc-900 text-zinc-400 font-bold text-xs uppercase rounded-lg hover:bg-zinc-800 hover:text-white transition-colors"
+                                      >
+                                          Отмена
+                                      </button>
+                                      <button 
+                                        onClick={handleRemoveMember}
+                                        disabled={loading}
+                                        className="flex-1 py-3 bg-red-600 text-white font-bold text-xs uppercase rounded-lg hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
+                                      >
+                                          {loading ? 'Удаление...' : 'Исключить'}
+                                      </button>
+                                  </div>
+                               </div>
+                           )}
+                      </div>
+                  )}
               </div>
           </div>,
           document.body

@@ -359,6 +359,18 @@ export const BandService = {
 
     if (error) throw new Error(error.message);
   },
+  
+  removeMember: async (bandId: string, userId: string) => {
+    if (USE_MOCK) return MockBand.removeMember(bandId, userId);
+
+    const { error } = await supabase
+      .from('band_members')
+      .delete()
+      .eq('band_id', bandId)
+      .eq('user_id', userId);
+
+    if (error) throw new Error(error.message);
+  },
 
   recordSale: async (bandId: string, sale: Sale) => {
     if (USE_MOCK) return MockBand.recordSale(bandId, sale);
@@ -633,6 +645,22 @@ const MockBand = {
         if (member) {
             member.role = role;
             localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
+        }
+    },
+    removeMember: (bandId: string, userId: string) => {
+        const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
+        const band = bands.find(b => b.id === bandId);
+        if (!band) return;
+        
+        band.members = band.members.filter(m => m.id !== userId);
+        localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
+
+        // Optional: Remove bandId from user profile in mock
+        const allUsers: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS_DB) || '[]');
+        const uIdx = allUsers.findIndex(u => u.id === userId);
+        if (uIdx !== -1) {
+            allUsers[uIdx].bandIds = allUsers[uIdx].bandIds.filter(bid => bid !== bandId);
+            localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(allUsers));
         }
     },
     recordSale: (bandId: string, sale: Sale) => {
