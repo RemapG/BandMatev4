@@ -121,7 +121,7 @@ export const AuthService = {
     const updates: any = {
         id: user.id,
         name,
-        updated_at: new Date().toISOString(),
+        // updated_at removed as per user request (missing column)
     };
     if (avatarUrl) updates.avatar_url = avatarUrl;
     if (description !== undefined) updates.description = description;

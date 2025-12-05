@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { AuthService, ImageService } from '../services/storage';
-import { User, ChevronLeft, Upload, Save, User as UserIcon } from 'lucide-react';
+import { ChevronLeft, Upload, Save, User as UserIcon, X, Check, ZoomIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Cropper from 'react-easy-crop';
+import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
 
 export default function ProfileSettingsPage() {
   const { user, refreshData } = useApp();
@@ -10,9 +14,18 @@ export default function ProfileSettingsPage() {
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [avatar, setAvatar] = useState<File | null>(null);
+  
+  // Avatar State
+  const [avatarBlob, setAvatarBlob] = useState<Blob | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Cropper State
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<PixelCrop | null>(null);
+  const [isCropping, setIsCropping] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -22,11 +35,43 @@ export default function ProfileSettingsPage() {
     }
   }, [user]);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      setAvatar(file);
-      setAvatarPreview(URL.createObjectURL(file));
+      const imageDataUrl = await readFile(file);
+      setImageSrc(imageDataUrl as string);
+      setIsCropping(true);
+      // Reset cropper state
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
+    }
+  };
+
+  const readFile = (file: File) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.addEventListener('load', () => resolve(reader.result), false);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: PixelCrop) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleSaveCrop = async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+    try {
+      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      if (croppedBlob) {
+        setAvatarBlob(croppedBlob);
+        setAvatarPreview(URL.createObjectURL(croppedBlob));
+        setIsCropping(false);
+        setImageSrc(null);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при обработке изображения');
     }
   };
 
@@ -36,8 +81,11 @@ export default function ProfileSettingsPage() {
 
     try {
         let finalAvatarUrl = user.avatarUrl;
-        if (avatar) {
-            finalAvatarUrl = await ImageService.upload(avatar);
+        
+        if (avatarBlob) {
+            // Convert Blob to File for the upload service
+            const file = new File([avatarBlob], `avatar-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            finalAvatarUrl = await ImageService.upload(file);
         }
 
         await AuthService.updateProfile(name, finalAvatarUrl, description);
@@ -81,7 +129,7 @@ export default function ProfileSettingsPage() {
                             <Upload size={24} className="text-white" />
                        </div>
                    </div>
-                   <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                   <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
                </label>
                <p className="text-xs text-zinc-500 mt-3 font-medium">Нажмите для изменения фото</p>
            </div>
@@ -122,6 +170,60 @@ export default function ProfileSettingsPage() {
              )}
            </button>
       </div>
+
+      {/* CROPPER MODAL */}
+      {isCropping && imageSrc && createPortal(
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-fade-in touch-none">
+              <div className="relative flex-1 bg-black touch-none">
+                   <Cropper
+                    image={imageSrc}
+                    crop={crop}
+                    zoom={zoom}
+                    aspect={1}
+                    onCropChange={setCrop}
+                    onCropComplete={onCropComplete}
+                    onZoomChange={setZoom}
+                    cropShape="round"
+                    showGrid={false}
+                   />
+              </div>
+
+              <div className="bg-zinc-900 p-6 pb-safe border-t border-zinc-800 space-y-6">
+                  <div className="flex items-center gap-4">
+                      <ZoomIn size={20} className="text-zinc-500" />
+                      <input
+                        type="range"
+                        value={zoom}
+                        min={1}
+                        max={3}
+                        step={0.1}
+                        aria-labelledby="Zoom"
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                  </div>
+
+                  <div className="flex gap-4">
+                      <button 
+                        onClick={() => { setIsCropping(false); setImageSrc(null); }}
+                        className="flex-1 py-4 rounded-xl bg-zinc-800 text-white font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                      >
+                          <X size={18} />
+                          Отмена
+                      </button>
+                      <button 
+                        onClick={handleSaveCrop}
+                        className="flex-1 py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                      >
+                          <Check size={18} />
+                          Готово
+                      </button>
+                  </div>
+              </div>
+          </div>,
+          document.body
+      )}
+
     </div>
   );
 }
