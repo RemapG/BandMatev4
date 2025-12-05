@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { User, Band, BandMember, UserRole } from './types';
 import { AuthService, BandService } from './services/storage';
-import { LayoutDashboard, ShoppingCart, Shirt, Users, LogOut, Music, ChevronDown, PlusCircle, User as UserIcon, Settings, Menu as MenuIcon } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Shirt, Users, LogOut, Music, ChevronDown, PlusCircle, User as UserIcon, Settings, Menu as MenuIcon, SlidersVertical } from 'lucide-react';
 
 // --- Pages ---
 import AuthPage from './pages/AuthPage';
@@ -10,7 +11,8 @@ import OnboardingPage from './pages/OnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import POSPage from './pages/POSPage';
 import InventoryPage from './pages/InventoryPage';
-import TeamPage from './pages/TeamPage';
+// TeamPage replaced by BandSettingsPage
+import BandSettingsPage from './pages/BandSettingsPage';
 import SettingsPage from './pages/SettingsPage';
 
 // --- Context ---
@@ -39,7 +41,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { icon: LayoutDashboard, label: 'Главная', path: '/dashboard' },
     { icon: ShoppingCart, label: 'Касса', path: '/pos' },
     { icon: Shirt, label: 'Склад', path: '/inventory' },
-    { icon: Users, label: 'Команда', path: '/team' },
+    { icon: SlidersVertical, label: 'Группа', path: '/band-settings' }, // Replaced Team with Band Settings
     { icon: Settings, label: 'Настройки', path: '/settings' },
   ];
 
@@ -308,8 +310,9 @@ export default function App() {
             user && currentBand ? <AppLayout><InventoryPage /></AppLayout> : <Navigate to="/" />
           } />
           
-           <Route path="/team" element={
-            user && currentBand ? <AppLayout><TeamPage /></AppLayout> : <Navigate to="/" />
+           {/* New Band Settings Route instead of Team */}
+           <Route path="/band-settings" element={
+            user && currentBand ? <AppLayout><BandSettingsPage /></AppLayout> : <Navigate to="/" />
           } />
 
           <Route path="/settings" element={

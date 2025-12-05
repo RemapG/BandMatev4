@@ -1,10 +1,11 @@
+
 import React from 'react';
 import { useApp } from '../App';
-import { User, LogOut, ChevronRight, Users, Shield, Music, User as UserIcon } from 'lucide-react';
+import { User, LogOut, ChevronRight, SlidersVertical, Music, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function SettingsPage() {
-  const { user, logout, currentBand } = useApp();
+  const { user, logout } = useApp();
   const navigate = useNavigate();
 
   if (!user) return null;
@@ -33,17 +34,18 @@ export default function SettingsPage() {
         <h4 className="text-xs text-zinc-500 font-bold uppercase tracking-widest px-2">Управление Группой</h4>
         
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden divide-y divide-zinc-800">
+            {/* Updated Link to Band Settings */}
             <button 
-                onClick={() => navigate('/team')}
+                onClick={() => navigate('/band-settings')}
                 className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/50 transition-colors"
             >
                 <div className="flex items-center gap-4">
                     <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                        <Users size={20} />
+                        <SlidersVertical size={20} />
                     </div>
                     <div className="text-left">
-                        <div className="text-white font-bold">Команда</div>
-                        <div className="text-xs text-zinc-500">Участники и права доступа</div>
+                        <div className="text-white font-bold">Настройки Группы</div>
+                        <div className="text-xs text-zinc-500">Команда, QR-код, Инфо</div>
                     </div>
                 </div>
                 <ChevronRight size={18} className="text-zinc-600" />
@@ -88,7 +90,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="text-center pt-8 text-zinc-600 text-xs">
-         BandMate v1.0.2 Mobile
+         BandMate v1.1.0 Mobile
       </div>
     </div>
   );

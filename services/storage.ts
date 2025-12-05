@@ -1,5 +1,4 @@
 
-
 import { Band, User, UserRole, Item, Sale, BandMember, SaleItem } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
@@ -118,7 +117,7 @@ export const BandService = {
         .select(`
             role,
             bands (
-                id, name, image_url, join_code
+                id, name, image_url, join_code, payment_qr_url
             )
         `)
         .eq('user_id', user.id);
@@ -194,6 +193,7 @@ export const BandService = {
         id: bandData.id,
         name: bandData.name,
         imageUrl: bandData.image_url,
+        paymentQrUrl: bandData.payment_qr_url,
         joinCode: bandData.join_code,
         members,
         inventory,
@@ -226,6 +226,17 @@ export const BandService = {
     const fullBand = await BandService.getBand(band.id);
     if (!fullBand) throw new Error("Failed to load new band");
     return fullBand;
+  },
+  
+  updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string): Promise<void> => {
+    if (USE_MOCK) return MockBand.updateBandDetails(bandId, name, imageUrl, paymentQrUrl);
+    
+    const { error } = await supabase
+      .from('bands')
+      .update({ name, image_url: imageUrl, payment_qr_url: paymentQrUrl })
+      .eq('id', bandId);
+
+    if (error) throw new Error(error.message);
   },
 
   searchBands: async (query: string): Promise<Partial<Band>[]> => {
@@ -345,9 +356,7 @@ export const BandService = {
       }
     }
 
-    // 2. Apply new stock (Refresh bandItems to ensure we have latest state after revert, 
-    // although serial execution above should be fine, let's just reuse bandItems but update the specific local object reference if needed.
-    // Actually, safer to re-fetch or just modify local logic carefully. For simplicity in this context, we re-fetch to avoid race conditions with previous awaits).
+    // 2. Apply new stock
     const { data: refreshedItems } = await supabase.from('items').select('*').eq('band_id', bandId);
     if (!refreshedItems) throw new Error("Inventory error");
 
@@ -501,6 +510,16 @@ const MockBand = {
         }
         return newBand;
     },
+    updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string): Promise<void> => {
+        const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
+        const idx = bands.findIndex(b => b.id === bandId);
+        if (idx !== -1) {
+            bands[idx].name = name;
+            if (imageUrl !== undefined) bands[idx].imageUrl = imageUrl;
+            if (paymentQrUrl !== undefined) bands[idx].paymentQrUrl = paymentQrUrl;
+            localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
+        }
+    },
     joinBand: (bandId: string, user: User): boolean => {
          const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
          const band = bands.find(b => b.id === bandId);
@@ -518,7 +537,6 @@ const MockBand = {
         const reqIdx = band.pendingRequests.findIndex(u => u.id === userId);
         if (reqIdx === -1) return;
         const user = band.pendingRequests[reqIdx];
-        // Set new member as UserRole.MEMBER (Продажник) by default
         band.members.push({ ...user, role: UserRole.MEMBER });
         band.pendingRequests.splice(reqIdx, 1);
         localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
@@ -572,7 +590,6 @@ const MockBand = {
             if (v) v.stock -= si.quantity;
         });
 
-        // Update Sale record
         const saleIndex = band.sales.findIndex(s => s.id === originalSale.id);
         if (saleIndex !== -1) {
             band.sales[saleIndex] = updatedSale;

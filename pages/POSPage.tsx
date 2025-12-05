@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { Item, CartItem, Sale, ItemVariant } from '../types';
 import { BandService } from '../services/storage';
-import { ShoppingCart, Plus, Minus, Trash2, CheckCircle, Package, X, ChevronRight, ChevronLeft, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, CheckCircle, Package, X, ChevronRight, ChevronLeft, ShoppingBag, QrCode } from 'lucide-react';
 
 export default function POSPage() {
   const { currentBand, user, refreshData } = useApp();
@@ -14,6 +14,7 @@ export default function POSPage() {
   // UI State
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
 
   if (!currentBand) return null;
 
@@ -66,8 +67,20 @@ export default function POSPage() {
     if (cart.length === 1) setIsCartOpen(false);
   };
 
-  const handleCheckout = () => {
-    if (cart.length === 0 || !user) return;
+  const handleCheckoutClick = () => {
+      if (cart.length === 0 || !user) return;
+      
+      // Check if band has payment QR
+      if (currentBand.paymentQrUrl) {
+          setShowQrModal(true);
+      } else {
+          // No QR, proceed directly
+          processTransaction();
+      }
+  };
+
+  const processTransaction = () => {
+    if (!user) return;
 
     const newSale: Sale = {
       id: Math.random().toString(36).substring(7),
@@ -86,6 +99,8 @@ export default function POSPage() {
 
     BandService.recordSale(currentBand.id, newSale);
     refreshData();
+    
+    setShowQrModal(false);
     setSuccess(true);
     
     setTimeout(() => {
@@ -256,7 +271,7 @@ export default function POSPage() {
                       <span className="text-4xl font-black text-white tracking-tighter">{total} ₽</span>
                   </div>
                   <button
-                    onClick={handleCheckout}
+                    onClick={handleCheckoutClick}
                     disabled={success || cart.length === 0}
                     className={`w-full py-5 rounded-2xl font-bold text-lg uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
                         success 
@@ -272,6 +287,45 @@ export default function POSPage() {
                     ) : (
                         'Принять Оплату'
                     )}
+                  </button>
+              </div>
+          </div>,
+          document.body
+      )}
+
+      {/* Payment QR Modal */}
+      {showQrModal && createPortal(
+          <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 animate-fade-in touch-none">
+              <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-8 relative animate-slide-up flex flex-col items-center text-center shadow-2xl">
+                  <button 
+                    onClick={() => setShowQrModal(false)}
+                    className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2"
+                  >
+                      <X size={24} />
+                  </button>
+
+                  <h3 className="text-2xl font-black text-white uppercase italic mb-2">Оплата по QR</h3>
+                  <p className="text-zinc-500 text-sm mb-6">Покажите этот код покупателю</p>
+
+                  <div className="p-4 bg-white rounded-2xl mb-6 shadow-xl">
+                      {currentBand.paymentQrUrl ? (
+                           <img src={currentBand.paymentQrUrl} alt="Payment QR" className="w-64 h-64 object-contain" />
+                      ) : (
+                           <div className="w-64 h-64 flex flex-col items-center justify-center text-black">
+                               <QrCode size={48} className="mb-2 opacity-20" />
+                               <span className="text-xs font-bold opacity-50">QR не загружен</span>
+                           </div>
+                      )}
+                  </div>
+
+                  <div className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-1">Сумма к оплате</div>
+                  <div className="text-4xl font-black text-white mb-8">{total} ₽</div>
+
+                  <button
+                    onClick={processTransaction}
+                    className="w-full py-4 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold uppercase tracking-widest text-sm transition-all shadow-lg shadow-green-500/20 active:scale-[0.98]"
+                  >
+                      Оплата получена
                   </button>
               </div>
           </div>,

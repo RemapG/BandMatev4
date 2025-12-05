@@ -52,6 +52,7 @@ export interface Band {
   id: string;
   name: string;
   imageUrl?: string;
+  paymentQrUrl?: string; // New field for Payment QR Code
   joinCode: string;
   members: BandMember[];
   inventory: Item[];
