@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useRef, useLayoutEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { User, Band, BandMember, UserRole } from './types';
 import { AuthService, BandService } from './services/storage';
@@ -36,6 +36,28 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isBandMenuOpen, setIsBandMenuOpen] = useState(false);
+  
+  // --- Scroll Memory Logic ---
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Store scroll positions keyed by pathname
+  const scrollPositions = useRef<{ [key: string]: number }>({});
+  // Track previous path to save its scroll position before switching
+  const prevPath = useRef(location.pathname);
+
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    // 1. Save scroll position of the PREVIOUS page
+    scrollPositions.current[prevPath.current] = container.scrollTop;
+
+    // 2. Update previous path tracker
+    prevPath.current = location.pathname;
+
+    // 3. Restore scroll position for the NEW page
+    const savedPosition = scrollPositions.current[location.pathname] || 0;
+    container.scrollTop = savedPosition;
+  }, [location.pathname]);
 
   // Desktop Navigation
   const desktopNavItems = [
@@ -161,7 +183,11 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {/* Mobile Page Content - No Top Header */}
         {/* 'overscroll-contain' and 'overflow-y-auto' allows scrolling INSIDE but not bouncing the whole page */}
         {/* 'touch-auto' allows scrolling, parent has 'touch-none' to prevent bounce elsewhere */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pb-24 md:pb-0 md:p-10 overscroll-none touch-auto no-scrollbar">
+        {/* Attach ref={scrollRef} here to track scrolling */}
+        <div 
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pb-24 md:pb-0 md:p-10 overscroll-none touch-auto no-scrollbar"
+        >
           <div className="max-w-7xl mx-auto min-h-full p-5 md:p-0">
              {children}
           </div>
