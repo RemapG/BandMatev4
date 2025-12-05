@@ -110,17 +110,26 @@ export const AuthService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("No user");
 
+    // 1. Update Auth Metadata (Syncs name/avatar to the session/JWT immediately)
+    await supabase.auth.updateUser({
+        data: { 
+            name: name,
+            avatar_url: avatarUrl 
+        }
+    });
+
+    // 2. Upsert into Public Profiles table
     const updates: any = {
+        id: user.id,
         name,
-        updated_at: new Date(),
+        updated_at: new Date().toISOString(),
     };
     if (avatarUrl) updates.avatar_url = avatarUrl;
     if (description !== undefined) updates.description = description;
 
     const { error } = await supabase
         .from('profiles')
-        .update(updates)
-        .eq('id', user.id);
+        .upsert(updates);
 
     if (error) throw new Error(error.message);
   },

@@ -1,6 +1,7 @@
 
 
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, DollarSign, Music, ChevronDown, PlusCircle, ArrowUpRight, Edit2, Minus, Plus, Trash2, X, AlertCircle } from 'lucide-react';
@@ -307,7 +308,7 @@ export default function DashboardPage() {
       </div>
 
       {/* EDIT SALE MODAL */}
-      {editingSale && (
+      {editingSale && createPortal(
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in touch-none">
               <div className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] relative animate-slide-up touch-pan-y">
                   <button 
@@ -414,7 +415,8 @@ export default function DashboardPage() {
                       </div>
                   )}
               </div>
-          </div>
+          </div>,
+          document.body
       )}
 
     </div>

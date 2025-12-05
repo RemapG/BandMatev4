@@ -1,5 +1,7 @@
 
+
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { Item, ItemVariant, UserRole } from '../types';
 import { BandService, ImageService } from '../services/storage';
@@ -244,7 +246,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Edit/Add Modal (Refined Style) */}
-      {isEditing && (
+      {isEditing && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in touch-none">
           <div className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl overflow-y-auto overflow-x-hidden max-h-[90vh] relative animate-slide-up touch-pan-y overscroll-contain">
             <button 
@@ -430,7 +432,8 @@ export default function InventoryPage() {
               )}
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
