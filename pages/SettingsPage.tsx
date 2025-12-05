@@ -15,19 +15,25 @@ export default function SettingsPage() {
       <h2 className="text-3xl font-black text-white tracking-tighter italic uppercase mb-6">Меню</h2>
 
       {/* Profile Card */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex items-center gap-4 shadow-lg">
-        <div className="w-16 h-16 rounded-full bg-zinc-800 border-2 border-zinc-700 overflow-hidden flex items-center justify-center">
+      <button 
+        onClick={() => navigate('/profile-settings')}
+        className="w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex items-center gap-4 shadow-lg hover:bg-zinc-800 transition-colors text-left group"
+      >
+        <div className="w-16 h-16 rounded-full bg-zinc-800 border-2 border-zinc-700 overflow-hidden flex items-center justify-center shrink-0 group-hover:border-primary transition-colors">
           {user.avatarUrl ? (
             <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
           ) : (
             <UserIcon size={32} className="text-zinc-500" />
           )}
         </div>
-        <div>
-          <h3 className="text-xl font-bold text-white leading-tight">{user.name}</h3>
-          <p className="text-zinc-500 text-sm">{user.email}</p>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white leading-tight">{user.name}</h3>
+              <ChevronRight size={18} className="text-zinc-600 group-hover:text-white transition-colors" />
+          </div>
+          <p className="text-zinc-500 text-sm truncate">{user.email}</p>
         </div>
-      </div>
+      </button>
 
       {/* Current Band Settings */}
       <div className="space-y-2">

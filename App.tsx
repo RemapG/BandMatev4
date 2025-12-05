@@ -14,6 +14,7 @@ import InventoryPage from './pages/InventoryPage';
 // TeamPage replaced by BandSettingsPage
 import BandSettingsPage from './pages/BandSettingsPage';
 import SettingsPage from './pages/SettingsPage';
+import ProfileSettingsPage from './pages/ProfileSettingsPage';
 
 // --- Context ---
 interface AppContextType {
@@ -317,6 +318,10 @@ export default function App() {
 
           <Route path="/settings" element={
             user ? <AppLayout><SettingsPage /></AppLayout> : <Navigate to="/" />
+          } />
+          
+          <Route path="/profile-settings" element={
+            user ? <AppLayout><ProfileSettingsPage /></AppLayout> : <Navigate to="/" />
           } />
 
           {/* Catch-all route to prevent 'No routes matched' errors in preview environments */}

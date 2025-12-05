@@ -81,6 +81,7 @@ export const AuthService = {
         name: profile?.name || data.user.user_metadata.name || 'User',
         email: data.user.email || '',
         avatarUrl: profile?.avatar_url || data.user.user_metadata.avatar_url,
+        description: profile?.description,
         bandIds: []
     };
   },
@@ -98,8 +99,30 @@ export const AuthService = {
         name: profile?.name || session.user.user_metadata?.name || 'User',
         email: session.user.email || '',
         avatarUrl: profile?.avatar_url || session.user.user_metadata?.avatar_url,
+        description: profile?.description,
         bandIds: []
     };
+  },
+
+  updateProfile: async (name: string, avatarUrl?: string, description?: string) => {
+    if (USE_MOCK) return MockAuth.updateProfile(name, avatarUrl, description);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("No user");
+
+    const updates: any = {
+        name,
+        updated_at: new Date(),
+    };
+    if (avatarUrl) updates.avatar_url = avatarUrl;
+    if (description !== undefined) updates.description = description;
+
+    const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
+
+    if (error) throw new Error(error.message);
   },
 
   logout: async () => {
@@ -153,6 +176,7 @@ export const BandService = {
         name: m.profiles?.name || 'Unknown',
         email: m.profiles?.email,
         avatarUrl: m.profiles?.avatar_url,
+        description: m.profiles?.description,
         bandIds: [],
         role: m.role as UserRole
     })).filter((m: any) => m.id);
@@ -186,6 +210,7 @@ export const BandService = {
         name: r.profiles?.name || 'Unknown',
         email: r.profiles?.email,
         avatarUrl: r.profiles?.avatar_url,
+        description: r.profiles?.description,
         bandIds: []
     })).filter((r: any) => r.id);
 
@@ -495,6 +520,24 @@ const MockAuth = {
     getCurrentUser: (): User | null => {
         const u = localStorage.getItem(STORAGE_KEYS.USER);
         return u ? JSON.parse(u) : null;
+    },
+    updateProfile: async (name: string, avatarUrl?: string, description?: string) => {
+        const uStr = localStorage.getItem(STORAGE_KEYS.USER);
+        if (!uStr) return;
+        const user: User = JSON.parse(uStr);
+        user.name = name;
+        if (avatarUrl) user.avatarUrl = avatarUrl;
+        if (description !== undefined) user.description = description;
+
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+
+        // Update in DB as well
+        const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS_DB) || '[]');
+        const idx = users.findIndex(u => u.id === user.id);
+        if (idx !== -1) {
+            users[idx] = user;
+            localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(users));
+        }
     },
     logout: () => localStorage.removeItem(STORAGE_KEYS.USER),
 };

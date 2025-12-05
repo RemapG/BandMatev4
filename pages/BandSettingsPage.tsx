@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { UserRole, BandMember } from '../types';
 import { BandService, ImageService } from '../services/storage';
-import { Shield, User, Copy, Check, X, Users, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone } from 'lucide-react';
+import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function BandSettingsPage() {
@@ -97,11 +97,6 @@ export default function BandSettingsPage() {
     } finally {
         setLoading(false);
     }
-  };
-
-  const copyCode = () => {
-    navigator.clipboard.writeText(currentBand.joinCode);
-    alert('Код скопирован!');
   };
 
   const handleApprove = async (requesterId: string) => {
@@ -266,20 +261,6 @@ export default function BandSettingsPage() {
       {/* SECTION 2: TEAM */}
       <div>
           <h3 className="text-lg font-bold text-white mb-4 px-2">Команда</h3>
-          
-          <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 border border-zinc-700 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl mb-6">
-            <div className="text-center md:text-left">
-                <span className="text-xs text-zinc-500 uppercase tracking-wider block mb-1">Код доступа</span>
-                <p className="text-zinc-400 text-xs">Отправьте этот код, чтобы пригласить участников</p>
-            </div>
-            <button 
-                onClick={copyCode}
-                className="flex items-center gap-4 bg-black/40 hover:bg-black/60 px-6 py-3 rounded-xl border border-dashed border-zinc-600 transition-all group"
-            >
-                <span className="text-3xl font-mono tracking-[0.2em] text-primary font-bold">{currentBand.joinCode}</span>
-                <Copy size={20} className="text-zinc-500 group-hover:text-white transition-colors" />
-            </button>
-          </div>
 
           <div className="space-y-3">
             {currentBand.members.map(member => (
@@ -364,6 +345,11 @@ export default function BandSettingsPage() {
                   <div className="mb-6">
                       <div className="text-xs text-zinc-500 font-bold uppercase tracking-widest mb-1">Настройка доступа</div>
                       <h3 className="text-xl font-bold text-white">{editingMember.name}</h3>
+                      {editingMember.description && (
+                          <div className="mt-2 text-sm text-zinc-400 bg-zinc-800/50 p-3 rounded-xl border border-zinc-800 italic">
+                              "{editingMember.description}"
+                          </div>
+                      )}
                   </div>
 
                   <div className="space-y-2">

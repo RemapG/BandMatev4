@@ -11,6 +11,7 @@ export interface User {
   email: string;
   password?: string;
   avatarUrl?: string;
+  description?: string; // Bio/Description
   bandIds: string[];
 }
 
