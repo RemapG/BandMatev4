@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { Item, CartItem, Sale, ItemVariant } from '../types';
 import { BandService } from '../services/storage';
@@ -173,10 +174,10 @@ export default function POSPage() {
       )}
 
       {/* Full Screen Cart Modal */}
-      {isCartOpen && (
-          <div className="fixed inset-0 z-[60] bg-black flex flex-col animate-fade-in">
+      {isCartOpen && createPortal(
+          <div className="fixed inset-0 z-[60] bg-black flex flex-col animate-fade-in touch-none">
               {/* Cart Header */}
-              <div className="flex items-center justify-between p-6 border-b border-zinc-900">
+              <div className="flex items-center justify-between p-6 border-b border-zinc-900 pt-safe bg-zinc-950">
                   <button 
                     onClick={() => setIsCartOpen(false)}
                     className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-900 transition-colors"
@@ -196,7 +197,7 @@ export default function POSPage() {
               </div>
 
               {/* Cart Items */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 touch-pan-y overscroll-contain">
                  {cart.map((item) => (
                     <div key={`${item.id}-${item.selectedVariant}`} className="bg-zinc-900 rounded-2xl p-4 flex gap-4 border border-zinc-800">
                         <div className="w-16 h-16 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-600 shrink-0 overflow-hidden">
@@ -239,21 +240,28 @@ export default function POSPage() {
                         </div>
                     </div>
                  ))}
+                 
+                 {cart.length === 0 && (
+                     <div className="h-full flex flex-col items-center justify-center text-zinc-500">
+                         <ShoppingBag size={48} className="mb-4 opacity-50" />
+                         <p>Корзина пуста</p>
+                     </div>
+                 )}
               </div>
 
               {/* Cart Footer */}
-              <div className="p-6 bg-zinc-900 border-t border-zinc-800 pb-10">
+              <div className="p-6 bg-zinc-900 border-t border-zinc-800 pb-12 md:pb-6">
                   <div className="flex justify-between items-end mb-6">
                       <span className="text-zinc-500 font-medium text-sm">Итого к оплате</span>
                       <span className="text-4xl font-black text-white tracking-tighter">{total} ₽</span>
                   </div>
                   <button
                     onClick={handleCheckout}
-                    disabled={success}
+                    disabled={success || cart.length === 0}
                     className={`w-full py-5 rounded-2xl font-bold text-lg uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
                         success 
                             ? 'bg-green-500 text-white shadow-[0_0_30px_rgba(34,197,94,0.3)]' 
-                            : 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_30px_rgba(255,255,255,0.1)]'
+                            : 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_30px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:shadow-none'
                     }`}
                   >
                     {success ? (
@@ -266,13 +274,14 @@ export default function POSPage() {
                     )}
                   </button>
               </div>
-          </div>
+          </div>,
+          document.body
       )}
 
       {/* Variant Selection Modal */}
-      {selectedItem && (
-          <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-              <div className="bg-zinc-900 border border-zinc-800 w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl relative animate-slide-up">
+      {selectedItem && createPortal(
+          <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
+              <div className="bg-zinc-900 border border-zinc-800 w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-6 pb-12 md:pb-6 shadow-2xl relative animate-slide-up touch-pan-y">
                   <button 
                     onClick={() => setSelectedItem(null)}
                     className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2"
@@ -311,7 +320,8 @@ export default function POSPage() {
                       ))}
                   </div>
               </div>
-          </div>
+          </div>,
+          document.body
       )}
     </div>
   );
