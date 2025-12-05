@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { UserRole, BandMember } from '../types';
 import { BandService, ImageService } from '../services/storage';
-import { Shield, User, Copy, Check, X, Users, Briefcase, ChevronRight, Upload, QrCode, Music, Settings } from 'lucide-react';
+import { Shield, User, Copy, Check, X, Users, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function BandSettingsPage() {
@@ -13,6 +13,7 @@ export default function BandSettingsPage() {
 
   // Settings State
   const [bandName, setBandName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [bandLogo, setBandLogo] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [qrImage, setQrImage] = useState<File | null>(null);
@@ -25,6 +26,7 @@ export default function BandSettingsPage() {
   useEffect(() => {
     if (currentBand) {
         setBandName(currentBand.name);
+        setPhoneNumber(currentBand.paymentPhoneNumber || '');
         setLogoPreview(currentBand.imageUrl || null);
         setQrPreview(currentBand.paymentQrUrl || null);
     }
@@ -70,7 +72,7 @@ export default function BandSettingsPage() {
             qrUrl = await ImageService.upload(qrImage);
         }
 
-        await BandService.updateBandDetails(currentBand.id, bandName, logoUrl, qrUrl);
+        await BandService.updateBandDetails(currentBand.id, bandName, logoUrl, qrUrl, phoneNumber);
         await refreshData();
         alert('Настройки сохранены');
     } catch (e) {
@@ -187,6 +189,22 @@ export default function BandSettingsPage() {
                             <p className="text-[10px] text-zinc-500 mt-2 text-center">Будет показан покупателю при оплате</p>
                        </label>
                    )}
+               </div>
+           </div>
+
+           {/* Phone Number Input */}
+           <div>
+               <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">Номер для перевода</label>
+               <div className="relative">
+                    <Phone className="absolute left-4 top-3.5 text-zinc-500" size={18} />
+                    <input
+                        type="text"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        disabled={!canEditInfo}
+                        placeholder="+7 (999) 000-00-00"
+                        className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-11 pr-4 py-3 text-white focus:border-primary outline-none transition-all font-bold disabled:opacity-50"
+                    />
                </div>
            </div>
 

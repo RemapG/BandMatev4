@@ -117,7 +117,7 @@ export const BandService = {
         .select(`
             role,
             bands (
-                id, name, image_url, join_code, payment_qr_url
+                id, name, image_url, join_code, payment_qr_url, payment_phone_number
             )
         `)
         .eq('user_id', user.id);
@@ -194,6 +194,7 @@ export const BandService = {
         name: bandData.name,
         imageUrl: bandData.image_url,
         paymentQrUrl: (bandData as any).payment_qr_url,
+        paymentPhoneNumber: (bandData as any).payment_phone_number,
         joinCode: bandData.join_code,
         members,
         inventory,
@@ -228,13 +229,14 @@ export const BandService = {
     return fullBand;
   },
   
-  updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string): Promise<void> => {
-    if (USE_MOCK) return MockBand.updateBandDetails(bandId, name, imageUrl, paymentQrUrl);
+  updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string): Promise<void> => {
+    if (USE_MOCK) return MockBand.updateBandDetails(bandId, name, imageUrl, paymentQrUrl, paymentPhoneNumber);
     
     const updatePayload: any = { 
         name, 
         image_url: imageUrl,
-        payment_qr_url: paymentQrUrl
+        payment_qr_url: paymentQrUrl,
+        payment_phone_number: paymentPhoneNumber
     };
 
     const { error } = await supabase
@@ -516,13 +518,14 @@ const MockBand = {
         }
         return newBand;
     },
-    updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string): Promise<void> => {
+    updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string): Promise<void> => {
         const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
         const idx = bands.findIndex(b => b.id === bandId);
         if (idx !== -1) {
             bands[idx].name = name;
             if (imageUrl !== undefined) bands[idx].imageUrl = imageUrl;
             if (paymentQrUrl !== undefined) bands[idx].paymentQrUrl = paymentQrUrl;
+            if (paymentPhoneNumber !== undefined) bands[idx].paymentPhoneNumber = paymentPhoneNumber;
             localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
         }
     },
@@ -635,4 +638,3 @@ const MockBand = {
         localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
     }
 };
-    

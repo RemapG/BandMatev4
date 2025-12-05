@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { Item, CartItem, Sale, ItemVariant } from '../types';
 import { BandService } from '../services/storage';
-import { ShoppingCart, Plus, Minus, Trash2, CheckCircle, Package, X, ChevronRight, ChevronLeft, ShoppingBag, QrCode } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, CheckCircle, Package, X, ChevronRight, ChevronLeft, ShoppingBag, QrCode, Phone, Copy } from 'lucide-react';
 
 export default function POSPage() {
   const { currentBand, user, refreshData } = useApp();
@@ -70,11 +70,11 @@ export default function POSPage() {
   const handleCheckoutClick = () => {
       if (cart.length === 0 || !user) return;
       
-      // Check if band has payment QR
-      if (currentBand.paymentQrUrl) {
+      // Check if band has payment QR OR Phone Number
+      if (currentBand.paymentQrUrl || currentBand.paymentPhoneNumber) {
           setShowQrModal(true);
       } else {
-          // No QR, proceed directly
+          // No QR/Phone, proceed directly
           processTransaction();
       }
   };
@@ -109,6 +109,13 @@ export default function POSPage() {
         setIsCartOpen(false);
     }, 1500);
   };
+
+  const copyPhone = () => {
+      if(currentBand.paymentPhoneNumber) {
+          navigator.clipboard.writeText(currentBand.paymentPhoneNumber);
+          alert('Номер скопирован');
+      }
+  }
 
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -293,10 +300,10 @@ export default function POSPage() {
           document.body
       )}
 
-      {/* Payment QR Modal */}
+      {/* Payment Options Modal */}
       {showQrModal && createPortal(
           <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 animate-fade-in touch-none">
-              <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-8 relative animate-slide-up flex flex-col items-center text-center shadow-2xl">
+              <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-3xl p-6 relative animate-slide-up flex flex-col items-center text-center shadow-2xl max-h-[90vh] overflow-y-auto">
                   <button 
                     onClick={() => setShowQrModal(false)}
                     className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2"
@@ -304,19 +311,34 @@ export default function POSPage() {
                       <X size={24} />
                   </button>
 
-                  <h3 className="text-2xl font-black text-white uppercase italic mb-2">Оплата по QR</h3>
-                  <p className="text-zinc-500 text-sm mb-6">Покажите этот код покупателю</p>
-
-                  <div className="p-4 bg-white rounded-2xl mb-6 shadow-xl">
-                      {currentBand.paymentQrUrl ? (
-                           <img src={currentBand.paymentQrUrl} alt="Payment QR" className="w-64 h-64 object-contain" />
-                      ) : (
-                           <div className="w-64 h-64 flex flex-col items-center justify-center text-black">
-                               <QrCode size={48} className="mb-2 opacity-20" />
-                               <span className="text-xs font-bold opacity-50">QR не загружен</span>
+                  <h3 className="text-2xl font-black text-white uppercase italic mb-6">Оплата</h3>
+                  
+                  {/* QR SECTION */}
+                  {currentBand.paymentQrUrl && (
+                      <div className="w-full mb-6">
+                           <div className="p-4 bg-white rounded-2xl shadow-xl flex items-center justify-center">
+                               <img src={currentBand.paymentQrUrl} alt="Payment QR" className="max-w-full h-48 object-contain" />
                            </div>
-                      )}
-                  </div>
+                           <p className="text-zinc-500 text-xs mt-2">QR код для оплаты</p>
+                      </div>
+                  )}
+
+                  {/* PHONE SECTION */}
+                  {currentBand.paymentPhoneNumber && (
+                      <div className="w-full mb-8">
+                          <p className="text-zinc-500 text-xs uppercase font-bold tracking-widest mb-2">Перевод по номеру</p>
+                          <button 
+                            onClick={copyPhone}
+                            className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:border-zinc-700 group"
+                          >
+                              <Phone size={20} className="text-primary" />
+                              <span className="text-xl font-mono font-bold text-white">{currentBand.paymentPhoneNumber}</span>
+                              <Copy size={16} className="text-zinc-600 group-hover:text-white" />
+                          </button>
+                      </div>
+                  )}
+
+                  <div className="w-full h-px bg-zinc-900 mb-6"></div>
 
                   <div className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-1">Сумма к оплате</div>
                   <div className="text-4xl font-black text-white mb-8">{total} ₽</div>
