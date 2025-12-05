@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, createContext, useContext } from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { User, Band, BandMember, UserRole } from './types';
 import { AuthService, BandService } from './services/storage';
 import { LayoutDashboard, ShoppingCart, Shirt, Users, LogOut, Music, ChevronDown, PlusCircle, User as UserIcon, Settings, Menu as MenuIcon } from 'lucide-react';
@@ -273,7 +272,7 @@ export default function App() {
 
   return (
     <AppContext.Provider value={{ user, currentBand, userBands, currentUserRole, refreshData, switchBand, logout }}>
-      <HashRouter>
+      <BrowserRouter>
         <Routes>
           <Route path="/auth" element={!user ? <AuthPage /> : <Navigate to="/" />} />
           
@@ -310,7 +309,7 @@ export default function App() {
           } />
 
         </Routes>
-      </HashRouter>
+      </BrowserRouter>
     </AppContext.Provider>
   );
 }
