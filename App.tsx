@@ -53,7 +53,8 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     // Updated container to use 100dvh (Dynamic Viewport Height) to avoid address bar issues
-    <div className="flex flex-col h-[100dvh] w-full bg-black md:flex-row text-zinc-100 overflow-hidden">
+    // Added 'overscroll-none' to prevent bounce effects on the root container
+    <div className="flex flex-col h-[100dvh] w-full bg-black md:flex-row text-zinc-100 overflow-hidden overscroll-none touch-none">
       {/* Desktop Sidebar (Hidden on Mobile) */}
       <div className="hidden md:flex flex-col w-72 bg-zinc-950 border-r border-zinc-900 p-6 z-20">
         <div className="flex items-center gap-3 mb-8 px-2">
@@ -153,9 +154,11 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
       {/* Main Content Area */}
       {/* Added pt-safe to respect Top Notch area */}
-      <main className="flex-1 flex flex-col h-full bg-black relative overflow-hidden pt-safe">
+      <main className="flex-1 flex flex-col h-full bg-black relative overflow-hidden pt-safe overscroll-none">
         {/* Mobile Page Content - No Top Header */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pb-24 md:pb-0 md:p-10">
+        {/* 'overscroll-contain' and 'overflow-y-auto' allows scrolling INSIDE but not bouncing the whole page */}
+        {/* 'touch-auto' allows scrolling, parent has 'touch-none' to prevent bounce elsewhere */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pb-24 md:pb-0 md:p-10 overscroll-contain touch-auto no-scrollbar">
           <div className="max-w-7xl mx-auto min-h-full p-5 md:p-0">
              {children}
           </div>
@@ -193,7 +196,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 // --- Loading Component ---
 const LoadingScreen = () => (
-    <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-black gap-4">
+    <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-black gap-4 overscroll-none touch-none">
         <div className="text-primary animate-pulse font-black text-3xl italic">BANDMATE</div>
         <div className="h-1 w-24 bg-zinc-800 rounded-full overflow-hidden">
             <div className="h-full bg-primary animate-slide-up w-full origin-left"></div>
