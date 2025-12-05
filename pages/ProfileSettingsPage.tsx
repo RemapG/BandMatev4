@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { AuthService, ImageService } from '../services/storage';
-import { ChevronLeft, Upload, Save, User as UserIcon, X, Check, ZoomIn } from 'lucide-react';
+import { ChevronLeft, Upload, Save, User as UserIcon, X, Check, ZoomIn, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
@@ -35,24 +35,34 @@ export default function ProfileSettingsPage() {
     }
   }, [user]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Cleanup object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+        if (imageSrc) URL.revokeObjectURL(imageSrc);
+    };
+  }, [imageSrc]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      const imageDataUrl = await readFile(file);
-      setImageSrc(imageDataUrl as string);
+      
+      // Safety check
+      if (file.size === 0) {
+          alert("Файл пуст или поврежден");
+          return;
+      }
+
+      // Use ObjectURL instead of FileReader for better performance with large files
+      const objectUrl = URL.createObjectURL(file);
+      setImageSrc(objectUrl);
       setIsCropping(true);
+      
       // Reset cropper state
       setZoom(1);
       setCrop({ x: 0, y: 0 });
+      // Important: clear input value so selecting the same file triggers change again if needed
+      e.target.value = ''; 
     }
-  };
-
-  const readFile = (file: File) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.addEventListener('load', () => resolve(reader.result), false);
-      reader.readAsDataURL(file);
-    });
   };
 
   const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: PixelCrop) => {
@@ -65,13 +75,19 @@ export default function ProfileSettingsPage() {
       const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
       if (croppedBlob) {
         setAvatarBlob(croppedBlob);
+        
+        // Revoke previous preview if it was a blob
+        if (avatarPreview && avatarPreview.startsWith('blob:')) {
+            URL.revokeObjectURL(avatarPreview);
+        }
+        
         setAvatarPreview(URL.createObjectURL(croppedBlob));
         setIsCropping(false);
         setImageSrc(null);
       }
     } catch (e) {
       console.error(e);
-      alert('Ошибка при обработке изображения');
+      alert('Ошибка при обработке изображения. Попробуйте другое фото.');
     }
   };
 
@@ -85,7 +101,13 @@ export default function ProfileSettingsPage() {
         if (avatarBlob) {
             // Convert Blob to File for the upload service
             const file = new File([avatarBlob], `avatar-${Date.now()}.jpg`, { type: 'image/jpeg' });
-            finalAvatarUrl = await ImageService.upload(file);
+            
+            // Explicit error handling for upload
+            const uploadedUrl = await ImageService.upload(file);
+            if (!uploadedUrl) {
+                throw new Error("Не удалось загрузить изображение на сервер. Проверьте интернет или выберите файл поменьше.");
+            }
+            finalAvatarUrl = uploadedUrl;
         }
 
         await AuthService.updateProfile(name, finalAvatarUrl, description);
@@ -94,7 +116,8 @@ export default function ProfileSettingsPage() {
         navigate('/settings');
     } catch (e: any) {
         console.error(e);
-        alert(`Ошибка: ${e.message || e.error_description || 'Неизвестная ошибка'}`);
+        const errorMsg = e.message || e.error_description || JSON.stringify(e);
+        alert(`Ошибка при сохранении: ${errorMsg}`);
     } finally {
         setLoading(false);
     }
@@ -174,21 +197,24 @@ export default function ProfileSettingsPage() {
       {/* CROPPER MODAL */}
       {isCropping && imageSrc && createPortal(
           <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-fade-in touch-none">
-              <div className="relative flex-1 bg-black touch-none">
-                   <Cropper
-                    image={imageSrc}
-                    crop={crop}
-                    zoom={zoom}
-                    aspect={1}
-                    onCropChange={setCrop}
-                    onCropComplete={onCropComplete}
-                    onZoomChange={setZoom}
-                    cropShape="round"
-                    showGrid={false}
-                   />
+              <div className="relative flex-1 bg-black touch-none flex flex-col justify-center">
+                   <div className="absolute inset-0 top-0 bottom-20">
+                       <Cropper
+                        image={imageSrc}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={1}
+                        onCropChange={setCrop}
+                        onCropComplete={onCropComplete}
+                        onZoomChange={setZoom}
+                        cropShape="round"
+                        showGrid={false}
+                        objectFit="contain"
+                       />
+                   </div>
               </div>
 
-              <div className="bg-zinc-900 p-6 pb-safe border-t border-zinc-800 space-y-6">
+              <div className="bg-zinc-900 p-6 pb-safe border-t border-zinc-800 space-y-6 relative z-10">
                   <div className="flex items-center gap-4">
                       <ZoomIn size={20} className="text-zinc-500" />
                       <input

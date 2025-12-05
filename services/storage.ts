@@ -1,3 +1,4 @@
+
 import { Band, User, UserRole, Item, Sale, BandMember, SaleItem } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
@@ -110,18 +111,20 @@ export const AuthService = {
     if (!user) throw new Error("No user");
 
     // 1. Update Auth Metadata (Syncs name/avatar to the session/JWT immediately)
-    await supabase.auth.updateUser({
+    const { error: authError } = await supabase.auth.updateUser({
         data: { 
             name: name,
             avatar_url: avatarUrl 
         }
     });
+    
+    if (authError) console.warn("Meta update warning:", authError.message);
 
     // 2. Upsert into Public Profiles table
     const updates: any = {
         id: user.id,
         name,
-        // updated_at removed as per user request (missing column)
+        // updated_at removed to avoid schema errors
     };
     if (avatarUrl) updates.avatar_url = avatarUrl;
     if (description !== undefined) updates.description = description;
