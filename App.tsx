@@ -158,7 +158,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {/* Mobile Page Content - No Top Header */}
         {/* 'overscroll-contain' and 'overflow-y-auto' allows scrolling INSIDE but not bouncing the whole page */}
         {/* 'touch-auto' allows scrolling, parent has 'touch-none' to prevent bounce elsewhere */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pb-24 md:pb-0 md:p-10 overscroll-contain touch-auto no-scrollbar">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pb-24 md:pb-0 md:p-10 overscroll-none touch-auto no-scrollbar">
           <div className="max-w-7xl mx-auto min-h-full p-5 md:p-0">
              {children}
           </div>

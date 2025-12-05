@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../App';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
@@ -45,7 +44,7 @@ export default function DashboardPage() {
   if (!currentBand) return null;
 
   return (
-    <div className="space-y-8 animate-fade-in pb-20">
+    <div className="space-y-8 animate-fade-in pb-20 h-full">
       
       {/* HERO HEADER - BAND SWITCHER */}
       <div className="relative z-20 -mx-5 -mt-5 md:mx-0 md:mt-0 mb-8">

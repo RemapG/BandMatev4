@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useApp } from '../App';
 import { User, LogOut, ChevronRight, Users, Shield, Music, User as UserIcon } from 'lucide-react';
@@ -11,7 +10,7 @@ export default function SettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
+    <div className="space-y-6 animate-fade-in pb-20 h-full">
       <h2 className="text-3xl font-black text-white tracking-tighter italic uppercase mb-6">Меню</h2>
 
       {/* Profile Card */}
