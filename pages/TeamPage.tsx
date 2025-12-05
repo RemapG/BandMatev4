@@ -160,9 +160,11 @@ export default function TeamPage() {
       </div>
 
       {/* Role Editor Modal */}
+      {/* UPDATE: Increased z-index to z-[60] to appear above bottom nav (z-50) */}
+      {/* UPDATE: Added pb-10 sm:pb-6 to ensure safe area at bottom */}
       {editingMember && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
-              <div className="bg-zinc-900 border border-zinc-800 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl relative animate-slide-up">
+          <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
+              <div className="bg-zinc-900 border border-zinc-800 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 pb-12 sm:pb-6 shadow-2xl relative animate-slide-up">
                   <button 
                     onClick={() => setEditingMember(null)}
                     className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2"
