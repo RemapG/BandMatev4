@@ -1,10 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { Item, ItemVariant, UserRole } from '../types';
 import { BandService, ImageService } from '../services/storage';
-import { Plus, Edit2, Search, Package, Image as ImageIcon, Trash2, X, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Search, Package, Image as ImageIcon, Trash2, X, AlertTriangle, ChevronRight, ZoomIn, Check } from 'lucide-react';
+import Cropper from 'react-easy-crop';
+import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
 
 export default function InventoryPage() {
   const { currentBand, user, refreshData } = useApp();
@@ -19,6 +21,13 @@ export default function InventoryPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | undefined>(undefined);
   
+  // Cropper State
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<PixelCrop | null>(null);
+  const [isCropping, setIsCropping] = useState(false);
+
   // Variants State
   const [hasVariants, setHasVariants] = useState(true);
   const [variants, setVariants] = useState<ItemVariant[]>([
@@ -30,6 +39,13 @@ export default function InventoryPage() {
 
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Cleanup object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+        if (imageSrc) URL.revokeObjectURL(imageSrc);
+    };
+  }, [imageSrc]);
 
   if (!currentBand || !user) return null;
 
@@ -67,10 +83,47 @@ export default function InventoryPage() {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
+    if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      setItemImage(file);
-      setImagePreview(URL.createObjectURL(file));
+      if (file.size === 0) {
+          alert("Файл поврежден");
+          return;
+      }
+      const objectUrl = URL.createObjectURL(file);
+      setImageSrc(objectUrl);
+      setIsCropping(true);
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
+      e.target.value = ''; // Reset input to allow re-selecting same file
+    }
+  };
+
+  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: PixelCrop) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleSaveCrop = async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+    try {
+      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      if (croppedBlob) {
+        // Convert Blob to File
+        const file = new File([croppedBlob], `item-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setItemImage(file);
+        
+        // Update Preview
+        if (imagePreview && imagePreview.startsWith('blob:')) {
+             URL.revokeObjectURL(imagePreview);
+        }
+        const previewUrl = URL.createObjectURL(croppedBlob);
+        setImagePreview(previewUrl);
+        
+        setIsCropping(false);
+        setImageSrc(null);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при обработке изображения.');
     }
   };
 
@@ -95,7 +148,8 @@ export default function InventoryPage() {
 
     let finalImageUrl = currentImageUrl;
     if (itemImage) {
-        finalImageUrl = await ImageService.upload(itemImage);
+        const uploadedUrl = await ImageService.upload(itemImage);
+        if (uploadedUrl) finalImageUrl = uploadedUrl;
     }
 
     let finalVariants = variants;
@@ -113,10 +167,16 @@ export default function InventoryPage() {
       imageUrl: finalImageUrl,
     };
 
-    BandService.updateInventory(currentBand.id, itemToSave);
-    refreshData();
-    setIsEditing(false);
-    setLoading(false);
+    try {
+        await BandService.updateInventory(currentBand.id, itemToSave);
+        await refreshData();
+        setIsEditing(false);
+    } catch (e) {
+        console.error(e);
+        alert('Ошибка сохранения');
+    } finally {
+        setLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -153,289 +213,303 @@ export default function InventoryPage() {
       <div className="flex items-center justify-between pt-4">
         <div>
             <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic drop-shadow-lg">Склад</h2>
-            <div className="h-1 w-12 bg-gradient-to-r from-primary to-purple-500 rounded-full mt-2"></div>
+            <div className="h-1 w-12 bg-primary mt-1 rounded-full"></div>
         </div>
-        
         {canEdit && (
-          <button
-            onClick={() => handleOpenEdit()}
-            className="flex items-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white pl-4 pr-5 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95"
-          >
-            <Plus size={22} strokeWidth={2.5} />
-            <span className="uppercase text-xs tracking-wider">Новый</span>
-          </button>
+            <button 
+                onClick={() => handleOpenEdit()}
+                className="bg-primary hover:bg-primary/90 text-white p-3 rounded-2xl shadow-lg shadow-primary/30 transition-all active:scale-95"
+            >
+                <Plus size={24} />
+            </button>
         )}
       </div>
 
       {/* Search */}
-      <div className="relative group sticky top-0 z-10">
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-black to-transparent h-20 -top-6 -z-10"></div>
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-primary transition-colors" size={20} />
-        <input
-          type="text"
-          placeholder="Поиск по названию..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-zinc-600 font-medium shadow-xl"
-        />
+      <div className="relative">
+          <Search className="absolute left-4 top-3.5 text-zinc-500" size={20} />
+          <input 
+            type="text" 
+            placeholder="Поиск товаров..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+          />
       </div>
 
-      {/* Items List (New Layout) */}
-      <div className="space-y-3">
-        {filteredItems.map(item => {
-            const totalStock = getTotalStock(item);
-            const isLowStock = totalStock < 5 && totalStock > 0;
-            const isOutOfStock = totalStock === 0;
-
-            return (
-                <div 
-                    key={item.id} 
-                    onClick={() => canEdit && handleOpenEdit(item)}
-                    className={`bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex items-center gap-4 transition-all hover:bg-zinc-800 relative overflow-hidden group ${canEdit ? 'cursor-pointer' : ''}`}
-                >
-                    {/* Status Indicator Bar */}
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${isOutOfStock ? 'bg-red-500' : (isLowStock ? 'bg-orange-500' : 'bg-green-500')} opacity-50`}></div>
-
-                    {/* Image */}
-                    <div className="h-16 w-16 bg-zinc-800 rounded-xl overflow-hidden shrink-0 border border-zinc-700 relative">
-                        {item.imageUrl ? (
-                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-zinc-600">
-                                <ImageIcon size={20} />
-                            </div>
-                        )}
-                        {isLowStock && (
-                            <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
-                                <AlertTriangle size={16} className="text-orange-300 drop-shadow-md" />
-                            </div>
-                        )}
-                    </div>
-                    
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                        <h3 className="text-white font-bold text-base line-clamp-1">{item.name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                             <span className="text-primary font-mono font-bold text-sm bg-primary/10 px-2 py-0.5 rounded-md">{item.price} ₽</span>
-                             {item.variants.length > 1 ? (
-                                 <span className="text-[10px] uppercase text-zinc-500 font-bold bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">{item.variants.length} вар.</span>
-                             ) : (
-                                 <span className="text-[10px] uppercase text-zinc-500 font-bold bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">Universal</span>
-                             )}
-                        </div>
-                    </div>
-
-                    {/* Stock & Action */}
-                    <div className="text-right flex flex-col items-end">
-                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-0.5">Остаток</span>
-                        <div className={`font-mono font-bold text-lg leading-none ${isOutOfStock ? 'text-red-500' : (isLowStock ? 'text-orange-400' : 'text-white')}`}>
-                            {totalStock}
-                        </div>
-                    </div>
-                    
-                    {canEdit && <ChevronRight size={18} className="text-zinc-600 group-hover:text-white transition-colors ml-1" />}
-                </div>
-            )
-        })}
-        
-        {filteredItems.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 opacity-50">
-                <Package size={64} className="mb-4 text-zinc-600" />
-                <p className="text-zinc-500">Склад пуст</p>
-            </div>
-        )}
+      {/* Inventory List */}
+      <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pb-4">
+          {filteredItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-zinc-500 opacity-50">
+                  <Package size={48} className="mb-2" />
+                  <p>Товары не найдены</p>
+              </div>
+          ) : (
+              <div className="grid grid-cols-1 gap-3">
+                  {filteredItems.map(item => (
+                      <div key={item.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-4 transition-all">
+                           <div className="w-20 h-20 bg-zinc-800 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border border-zinc-700">
+                                {item.imageUrl ? (
+                                    <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <Package size={24} className="text-zinc-600" />
+                                )}
+                           </div>
+                           <div className="flex-1 flex flex-col justify-between py-1">
+                               <div className="flex justify-between items-start">
+                                   <h3 className="text-white font-bold leading-tight pr-2">{item.name}</h3>
+                                   <span className="text-primary font-mono font-bold">{item.price} ₽</span>
+                               </div>
+                               
+                               <div className="flex items-end justify-between mt-2">
+                                    <div className="flex flex-wrap gap-1">
+                                        {item.variants.length === 1 && item.variants[0].label === 'Universal' ? (
+                                            <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-lg">
+                                                {item.variants[0].stock} шт
+                                            </span>
+                                        ) : (
+                                            item.variants.map((v, idx) => (
+                                                <span key={idx} className="text-[10px] text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
+                                                    {v.label}: {v.stock}
+                                                </span>
+                                            ))
+                                        )}
+                                    </div>
+                                    
+                                    {canEdit && (
+                                        <button 
+                                            onClick={() => handleOpenEdit(item)}
+                                            className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-zinc-400 hover:text-white transition-colors"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                    )}
+                               </div>
+                           </div>
+                      </div>
+                  ))}
+              </div>
+          )}
       </div>
 
-      {/* Edit/Add Modal (Refined Style) */}
+      {/* Edit Modal */}
       {isEditing && createPortal(
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in touch-none">
-          <div className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl overflow-y-auto overflow-x-hidden max-h-[90vh] relative animate-slide-up touch-pan-y overscroll-contain">
-            <button 
-                onClick={() => setIsEditing(false)}
-                className="absolute top-6 right-6 text-zinc-500 hover:text-white p-2 bg-zinc-900 rounded-full"
-            >
-                <X size={20} />
-            </button>
-
-            <h3 className="text-2xl font-black text-white mb-6 uppercase italic tracking-tighter">
-              {currentItemId ? 'Редактировать' : 'Новый Товар'}
-            </h3>
-            
-            <form onSubmit={handleSave} className="space-y-6">
-              
-               {/* Image Upload Area */}
-               <label className="block w-full cursor-pointer group">
-                  <div className="w-full h-48 rounded-2xl bg-zinc-900/50 border-2 border-dashed border-zinc-700 flex flex-col items-center justify-center overflow-hidden transition-all hover:border-primary hover:bg-zinc-900 relative">
-                      {imagePreview ? (
-                          <>
-                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="bg-black/70 text-white px-3 py-1 rounded-full text-sm font-bold">Изменить</span>
-                            </div>
-                          </>
-                      ) : (
-                          <>
-                            <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                <ImageIcon size={24} className="text-zinc-500 group-hover:text-primary" />
-                            </div>
-                            <span className="text-sm text-zinc-500 font-bold uppercase tracking-wide">Загрузить фото</span>
-                          </>
-                      )}
+          <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
+              <div className="bg-zinc-950 border border-zinc-800 w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-6 pb-12 sm:pb-6 shadow-2xl relative animate-slide-up flex flex-col max-h-[95vh]">
+                  <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-xl font-bold text-white uppercase italic">
+                          {currentItemId ? 'Редактировать' : 'Новый товар'}
+                      </h3>
+                      <button 
+                        onClick={() => setIsEditing(false)}
+                        className="p-2 -mr-2 text-zinc-500 hover:text-white"
+                      >
+                          <X size={24} />
+                      </button>
                   </div>
-                  <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-               </label>
 
-               <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">Название</label>
-                        <input
-                            required
-                            type="text"
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-bold"
-                            placeholder="Название товара"
-                        />
-                    </div>
-                    <div className="col-span-2">
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">Цена (₽)</label>
-                        <input
-                            required
-                            type="number"
-                            value={price}
-                            onChange={e => setPrice(Number(e.target.value))}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-mono font-bold text-lg"
-                        />
-                    </div>
-               </div>
+                  <form onSubmit={handleSave} className="flex-1 overflow-y-auto space-y-5 pr-2 touch-pan-y">
+                       {/* Image Upload */}
+                       <div className="flex justify-center">
+                           <label className="relative cursor-pointer group">
+                               <div className="w-32 h-32 rounded-2xl bg-zinc-900 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden transition-colors hover:border-primary relative">
+                                   {imagePreview ? (
+                                       <img src={imagePreview} className="w-full h-full object-cover" />
+                                   ) : (
+                                       <div className="flex flex-col items-center text-zinc-600">
+                                           <ImageIcon size={32} className="mb-2" />
+                                           <span className="text-[10px] uppercase font-bold">Фото</span>
+                                       </div>
+                                   )}
+                                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                       <Edit2 size={24} className="text-white" />
+                                   </div>
+                               </div>
+                               <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                           </label>
+                       </div>
 
-               <div className="pt-4 border-t border-zinc-800/50">
-                    <div className="flex items-center justify-between mb-4">
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Размеры / Вариации</label>
-                        <div className="flex items-center gap-1 bg-zinc-900 p-1 rounded-lg border border-zinc-800">
-                            <button
-                                type="button"
-                                onClick={() => setHasVariants(false)}
-                                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${!hasVariants ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'}`}
-                            >
-                                Один
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setHasVariants(true)}
-                                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${hasVariants ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'}`}
-                            >
-                                Список
-                            </button>
-                        </div>
-                    </div>
+                       <div className="space-y-4">
+                           <div>
+                               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Название</label>
+                               <input 
+                                    type="text" 
+                                    required
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none"
+                                    placeholder="Футболка Black"
+                               />
+                           </div>
+                           <div>
+                               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Цена (₽)</label>
+                               <input 
+                                    type="number" 
+                                    required
+                                    value={price}
+                                    onChange={e => setPrice(Number(e.target.value))}
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none font-mono"
+                                    placeholder="2500"
+                               />
+                           </div>
+                       </div>
 
-                    {hasVariants ? (
-                        <div className="space-y-2 bg-zinc-900/30 p-2 rounded-xl border border-zinc-800/50">
-                             {variants.map((v, idx) => (
-                                 <div key={idx} className="flex gap-2 items-center">
-                                     <input 
-                                        type="text" 
-                                        placeholder="S, M, L..."
-                                        value={v.label}
-                                        onChange={(e) => updateVariant(idx, 'label', e.target.value)}
-                                        className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:border-primary outline-none font-bold text-center uppercase"
-                                     />
-                                     <input 
+                       <div className="pt-4 border-t border-zinc-900">
+                           <div className="flex items-center justify-between mb-4">
+                               <label className="text-sm font-bold text-white flex items-center gap-2">
+                                   <input 
+                                    type="checkbox" 
+                                    checked={hasVariants}
+                                    onChange={e => setHasVariants(e.target.checked)}
+                                    className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-primary focus:ring-offset-black"
+                                   />
+                                   Есть размеры / Вариации
+                               </label>
+                           </div>
+
+                           {hasVariants ? (
+                               <div className="space-y-3">
+                                   {variants.map((v, idx) => (
+                                       <div key={idx} className="flex gap-3">
+                                           <input 
+                                                type="text" 
+                                                placeholder="Размер (M)"
+                                                value={v.label}
+                                                onChange={e => updateVariant(idx, 'label', e.target.value)}
+                                                className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-white text-sm focus:border-primary outline-none"
+                                           />
+                                           <input 
+                                                type="number" 
+                                                placeholder="Кол-во"
+                                                value={v.stock}
+                                                onChange={e => updateVariant(idx, 'stock', Number(e.target.value))}
+                                                className="w-24 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-white text-sm focus:border-primary outline-none font-mono"
+                                           />
+                                           <button 
+                                            type="button"
+                                            onClick={() => removeVariant(idx)}
+                                            className="p-2 text-zinc-600 hover:text-red-500"
+                                           >
+                                               <X size={18} />
+                                           </button>
+                                       </div>
+                                   ))}
+                                   <button 
+                                    type="button"
+                                    onClick={addVariant}
+                                    className="text-xs text-primary font-bold uppercase hover:underline flex items-center gap-1 mt-2"
+                                   >
+                                       <Plus size={14} /> Добавить вариант
+                                   </button>
+                               </div>
+                           ) : (
+                               <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 flex items-center justify-between">
+                                   <span className="text-zinc-400 text-sm">Количество на складе</span>
+                                   <input 
                                         type="number" 
-                                        placeholder="0"
-                                        value={v.stock}
-                                        onChange={(e) => updateVariant(idx, 'stock', Number(e.target.value))}
-                                        className="w-20 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:border-primary outline-none font-mono text-center"
-                                     />
-                                     <button 
-                                        type="button" 
-                                        onClick={() => removeVariant(idx)}
-                                        className="w-9 h-9 flex items-center justify-center bg-zinc-900 hover:bg-red-500/20 text-zinc-600 hover:text-red-500 rounded-lg transition-colors"
-                                     >
-                                         <Trash2 size={16} />
-                                     </button>
-                                 </div>
-                             ))}
-                             <button
+                                        value={variants[0]?.stock || 0}
+                                        onChange={e => {
+                                            const newV = [...variants];
+                                            if (!newV[0]) newV[0] = { label: 'Universal', stock: 0 };
+                                            newV[0].stock = Number(e.target.value);
+                                            setVariants(newV);
+                                        }}
+                                        className="w-24 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-white font-mono text-right focus:border-primary outline-none"
+                                   />
+                               </div>
+                           )}
+                       </div>
+                  </form>
+
+                  <div className="pt-6 mt-4 border-t border-zinc-900 flex gap-3">
+                      {currentItemId && (
+                           !showDeleteConfirm ? (
+                               <button 
                                 type="button"
-                                onClick={addVariant}
-                                className="w-full py-2 border border-dashed border-zinc-700 rounded-xl text-zinc-500 text-xs font-bold uppercase hover:text-white hover:border-zinc-500 transition-colors flex items-center justify-center gap-2 mt-2"
-                             >
-                                <Plus size={14} /> Добавить вариант
-                             </button>
-                        </div>
-                    ) : (
-                        <div>
-                             <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">Количество</label>
-                             <input
-                                required
-                                type="number"
-                                value={variants[0]?.stock || 0}
-                                onChange={e => {
-                                    const newV = [...variants];
-                                    if (!newV[0]) newV[0] = { label: 'Universal', stock: 0 };
-                                    newV[0].stock = Number(e.target.value);
-                                    newV[0].label = 'Universal';
-                                    setVariants(newV);
-                                }}
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none font-mono text-lg"
-                            />
-                        </div>
-                    )}
-               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 rounded-xl bg-gradient-to-r from-primary to-purple-600 text-white hover:from-primary/90 hover:to-purple-600/90 font-bold uppercase tracking-widest text-sm transition-all shadow-lg shadow-primary/20 disabled:opacity-50 active:scale-[0.98]"
-              >
-                {loading ? 'Сохранение...' : 'Сохранить'}
-              </button>
-
-              {currentItemId && (
-                  <div className="mt-3">
-                     {!showDeleteConfirm ? (
-                        <button
-                            type="button"
-                            onClick={handleDelete}
-                            disabled={loading}
-                            className="w-full py-3 text-red-500 hover:text-red-400 font-bold text-xs uppercase tracking-widest transition-all opacity-60 hover:opacity-100"
-                        >
-                            Удалить Товар
-                        </button>
-                     ) : (
-                        <div className="flex flex-col gap-2 bg-red-500/10 p-4 rounded-xl border border-red-500/20 animate-fade-in mt-4">
-                            <div className="flex items-center gap-2 text-red-400 justify-center mb-2">
-                                <AlertTriangle size={18} />
-                                <span className="text-sm font-bold">Вы уверены?</span>
-                            </div>
-                            <div className="flex gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDeleteConfirm(false)}
-                                    className="flex-1 py-3 rounded-lg bg-zinc-900 text-zinc-400 font-bold text-sm hover:text-white transition-colors"
-                                >
-                                    Отмена
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleDelete}
-                                    disabled={loading}
-                                    className="flex-1 py-3 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
-                                >
-                                    Да, удалить
-                                </button>
-                            </div>
-                        </div>
-                     )}
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="p-4 rounded-xl bg-zinc-900 text-red-500 hover:bg-red-500/10 transition-colors"
+                               >
+                                   <Trash2 size={20} />
+                               </button>
+                           ) : (
+                               <button 
+                                type="button"
+                                onClick={handleDelete}
+                                className="px-6 py-4 rounded-xl bg-red-600 text-white font-bold text-xs uppercase hover:bg-red-700 transition-colors"
+                               >
+                                   Подтвердить
+                               </button>
+                           )
+                      )}
+                      <button 
+                        onClick={handleSave}
+                        disabled={loading}
+                        className="flex-1 py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                      >
+                          {loading ? 'Сохранение...' : 'Сохранить'}
+                      </button>
                   </div>
-              )}
-            </form>
-          </div>
-        </div>,
-        document.body
+              </div>
+          </div>,
+          document.body
       )}
+
+      {/* CROPPER MODAL */}
+      {isCropping && imageSrc && createPortal(
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-fade-in touch-none">
+              <div className="relative flex-1 bg-black touch-none flex flex-col justify-center">
+                   <div className="absolute inset-0 top-0 bottom-20">
+                       <Cropper
+                        image={imageSrc}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={1}
+                        onCropChange={setCrop}
+                        onCropComplete={onCropComplete}
+                        onZoomChange={setZoom}
+                        cropShape="rect"
+                        showGrid={true}
+                        objectFit="contain"
+                       />
+                   </div>
+              </div>
+
+              <div className="bg-zinc-900 p-6 pb-safe border-t border-zinc-800 space-y-6 relative z-10">
+                  <div className="flex items-center gap-4">
+                      <ZoomIn size={20} className="text-zinc-500" />
+                      <input
+                        type="range"
+                        value={zoom}
+                        min={1}
+                        max={3}
+                        step={0.1}
+                        aria-labelledby="Zoom"
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                  </div>
+
+                  <div className="flex gap-4">
+                      <button 
+                        onClick={() => { setIsCropping(false); setImageSrc(null); }}
+                        className="flex-1 py-4 rounded-xl bg-zinc-800 text-white font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                      >
+                          <X size={18} />
+                          Отмена
+                      </button>
+                      <button 
+                        onClick={handleSaveCrop}
+                        className="flex-1 py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                      >
+                          <Check size={18} />
+                          Применить
+                      </button>
+                  </div>
+              </div>
+          </div>,
+          document.body
+      )}
+
     </div>
   );
 }
