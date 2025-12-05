@@ -1,0 +1,7 @@
+{
+  "name": "BandMate",
+  "description": "Comprehensive merchandise management and POS system for bands and artists. Track sales offline/online, manage inventory, and coordinate with your team.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
