@@ -1,6 +1,5 @@
 
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { Item, ItemVariant, UserRole } from '../types';
@@ -142,9 +141,11 @@ export default function InventoryPage() {
 
   const getTotalStock = (item: Item) => item.variants.reduce((acc, v) => acc + v.stock, 0);
 
-  const filteredItems = currentBand.inventory.filter(i => 
-    i.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredItems = useMemo(() => {
+    return currentBand.inventory
+        .filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name));
+  }, [currentBand.inventory, searchTerm]);
 
   return (
     <div className="space-y-6 h-full flex flex-col pb-24">

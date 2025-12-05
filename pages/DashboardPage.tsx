@@ -4,10 +4,11 @@ import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, DollarSign, Music, ChevronDown, PlusCircle, ArrowUpRight, Edit2, Minus, Plus, Trash2, X, AlertCircle } from 'lucide-react';
+import { TrendingUp, DollarSign, Music, ChevronDown, PlusCircle, ArrowUpRight, Edit2, Minus, Plus, Trash2, X, AlertCircle, Sparkles, PackageX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Sale, SaleItem, UserRole } from '../types';
 import { BandService } from '../services/storage';
+import { generateSalesAnalysis } from '../services/geminiService';
 
 export default function DashboardPage() {
   const { currentBand, userBands, switchBand, currentUserRole, refreshData } = useApp();
@@ -20,6 +21,10 @@ export default function DashboardPage() {
   const [isDeletingSale, setIsDeletingSale] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false); // New state to lock actions
   
+  // AI State
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
   // Permissions
   const canEditSales = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.MODERATOR;
 
@@ -32,6 +37,20 @@ export default function DashboardPage() {
       totalSales: currentBand.sales.length,
       avgCheck: currentBand.sales.length > 0 ? Math.round(totalRevenue / currentBand.sales.length) : 0,
     };
+  }, [currentBand]);
+
+  // Low Stock Items
+  const lowStockItems = useMemo(() => {
+      if (!currentBand) return [];
+      const low: { name: string; variant: string; stock: number }[] = [];
+      currentBand.inventory.forEach(item => {
+          item.variants.forEach(v => {
+              if (v.stock < 5) {
+                  low.push({ name: item.name, variant: v.label, stock: v.stock });
+              }
+          });
+      });
+      return low.slice(0, 3); // Show top 3
   }, [currentBand]);
 
   // Chart Data: Sales by Date
@@ -125,6 +144,21 @@ export default function DashboardPage() {
       }
   };
 
+  const handleGenerateAnalysis = async () => {
+      if (!currentBand || isAnalyzing) return;
+      setIsAnalyzing(true);
+      setAiAnalysis(null);
+      try {
+          const result = await generateSalesAnalysis(currentBand);
+          setAiAnalysis(result);
+      } catch (e) {
+          console.error(e);
+          setAiAnalysis("Не удалось связаться с аналитиком.");
+      } finally {
+          setIsAnalyzing(false);
+      }
+  };
+
   const editedTotal = editedItems.reduce((acc, item) => acc + (item.priceAtSale * item.quantity), 0);
 
   if (!currentBand) return null;
@@ -199,226 +233,69 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* REVENUE STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gradient-to-br from-zinc-900 to-black border border-zinc-800/50 p-6 rounded-3xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-3 opacity-20">
-                  <TrendingUp size={80} className="text-green-500 transform translate-x-4 -translate-y-4" />
-              </div>
-              <p className="text-zinc-500 font-bold text-xs uppercase tracking-wider mb-1">Общая Выручка</p>
-              <h2 className="text-4xl font-black text-white tracking-tight">{stats.totalRevenue.toLocaleString()} ₽</h2>
-              <div className="flex items-center gap-2 mt-4">
-                  <span className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-lg font-bold flex items-center gap-1">
-                      <ArrowUpRight size={12} />
-                      {stats.totalSales} продаж
-                  </span>
-                  <span className="text-zinc-500 text-xs">за всё время</span>
-              </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-              <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-3xl flex flex-col justify-between">
-                   <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 mb-2">
-                       <DollarSign size={20} />
-                   </div>
-                   <div>
-                       <p className="text-zinc-500 text-[10px] font-bold uppercase">Ср. Чек</p>
-                       <p className="text-xl font-bold text-white">{stats.avgCheck} ₽</p>
-                   </div>
-              </div>
-              <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-3xl flex flex-col justify-between">
-                   <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-400 mb-2">
-                       <TrendingUp size={20} />
-                   </div>
-                   <div>
-                       <p className="text-zinc-500 text-[10px] font-bold uppercase">Сегодня</p>
-                       <p className="text-xl font-bold text-white">+{recentSales.filter(s => new Date(s.timestamp).toDateString() === new Date().toDateString()).length}</p>
-                   </div>
-              </div>
-          </div>
-      </div>
-
-      {/* CHART */}
-      {chartData.length > 0 && (
-          <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6">
-            <h3 className="text-zinc-400 font-bold text-xs uppercase tracking-wider mb-6">Динамика Продаж</h3>
-            <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                    <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                    </linearGradient>
-                    </defs>
-                    <Tooltip 
-                    contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '12px' }}
-                    itemStyle={{ color: '#fff', fontWeight: 'bold' }}
-                    cursor={{ stroke: '#52525b', strokeDasharray: '4 4' }}
-                    />
-                    <Area type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={4} fill="url(#colorRevenue)" />
-                </AreaChart>
-                </ResponsiveContainer>
-            </div>
-          </div>
-      )}
-
-      {/* RECENT SALES LIST */}
-      <div className="pb-4">
-         <div className="flex items-center justify-between mb-4 px-2">
-             <h3 className="text-white font-bold text-lg">История продаж</h3>
-             <button onClick={() => navigate('/pos')} className="text-xs text-primary font-bold uppercase hover:underline">В Кассу</button>
-         </div>
-         <div className="space-y-3">
-            {recentSales.map(sale => (
-                <div 
-                    key={sale.id} 
-                    onClick={() => handleOpenEdit(sale)}
-                    className={`flex items-center justify-between bg-zinc-900 border border-zinc-800 p-4 rounded-2xl transition-all ${
-                        canEditSales ? 'cursor-pointer hover:bg-zinc-800 active:scale-[0.99] group' : ''
-                    }`}
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-zinc-800 to-black border border-zinc-700 flex items-center justify-center text-zinc-400 font-mono text-xs relative group-hover:border-zinc-500 transition-colors">
-                            {canEditSales ? <Edit2 size={12} className="text-zinc-500 group-hover:text-white" /> : '₽'}
-                        </div>
-                        <div>
-                            <div className="text-white font-bold">{sale.total} ₽</div>
-                            <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wide">
-                                {sale.items.reduce((a, b) => a + b.quantity, 0)} шт • {sale.sellerName}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="text-right">
-                         <div className="text-xs text-zinc-500 font-medium">
-                            {new Date(sale.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                         </div>
-                         <div className="text-[10px] text-zinc-600">
-                             {new Date(sale.timestamp).toLocaleDateString([], {day: 'numeric', month: 'short'})}
-                         </div>
-                    </div>
-                </div>
-            ))}
-            {recentSales.length === 0 && (
-                <div className="text-center py-10 border border-dashed border-zinc-800 rounded-2xl">
-                    <p className="text-zinc-500 text-sm">Продаж пока нет</p>
-                </div>
-            )}
-         </div>
-      </div>
-
-      {/* EDIT SALE MODAL */}
-      {editingSale && createPortal(
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in touch-none">
-              <div className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] relative animate-slide-up touch-pan-y">
-                  <button 
-                    onClick={() => !isProcessing && setEditingSale(null)}
-                    className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2 rounded-full hover:bg-zinc-900 disabled:opacity-50"
-                    disabled={isProcessing}
-                  >
-                      <X size={20} />
-                  </button>
-
-                  <div className="mb-6">
-                      <div className="text-xs text-zinc-500 font-bold uppercase tracking-widest mb-1">Редактирование</div>
-                      <h3 className="text-xl font-bold text-white">Продажа от {new Date(editingSale.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</h3>
-                      <p className="text-xs text-zinc-500">Продавец: {editingSale.sellerName}</p>
+      {/* AI ANALYTICS BLOCK */}
+      {currentBand.sales.length > 0 && (
+          <div className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 rounded-3xl p-5 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-3 relative z-10">
+                  <div className="flex items-center gap-2">
+                      <Sparkles size={20} className="text-indigo-400" />
+                      <h3 className="text-indigo-100 font-bold text-sm uppercase tracking-wide">AI Аналитик</h3>
                   </div>
-
-                  <div className="space-y-3 mb-6">
-                      {editedItems.map((item, idx) => (
-                          <div key={`${item.itemId}-${idx}`} className="bg-zinc-900/50 p-3 rounded-xl border border-zinc-800 flex items-center justify-between">
-                              <div className="flex-1">
-                                  <div className="text-white font-medium text-sm line-clamp-1">{item.name}</div>
-                                  <div className="text-xs text-zinc-500">{item.variantLabel} • {item.priceAtSale} ₽</div>
-                              </div>
-                              
-                              <div className="flex items-center gap-3">
-                                  <div className="flex items-center bg-black rounded-lg p-1 border border-zinc-800">
-                                      <button 
-                                        onClick={() => handleUpdateQuantity(idx, -1)}
-                                        disabled={isProcessing}
-                                        className="w-7 h-7 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded transition-colors disabled:opacity-50"
-                                      >
-                                          <Minus size={12} />
-                                      </button>
-                                      <span className="w-8 text-center font-mono text-sm font-bold text-white">{item.quantity}</span>
-                                      <button 
-                                        onClick={() => handleUpdateQuantity(idx, 1)}
-                                        disabled={isProcessing}
-                                        className="w-7 h-7 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded transition-colors disabled:opacity-50"
-                                      >
-                                          <Plus size={12} />
-                                      </button>
-                                  </div>
-                                  <button 
-                                    onClick={() => handleRemoveItem(idx)}
-                                    disabled={isProcessing}
-                                    className="p-2 text-zinc-600 hover:text-red-500 transition-colors disabled:opacity-50"
-                                  >
-                                      <Trash2 size={16} />
-                                  </button>
-                              </div>
-                          </div>
-                      ))}
-                      {editedItems.length === 0 && (
-                          <div className="text-center py-8 text-zinc-500 text-sm border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
-                              Все товары удалены.
-                              <br/>Сохранение отменит продажу.
-                          </div>
-                      )}
-                  </div>
-                  
-                  <div className="flex items-center justify-between mb-6 p-4 bg-zinc-900 rounded-xl border border-zinc-800">
-                      <span className="text-zinc-500 text-sm font-bold uppercase">Итого</span>
-                      <span className="text-xl font-black text-white">{editedTotal} ₽</span>
-                  </div>
-
-                  <button
-                    onClick={handleSaveSale}
-                    disabled={isProcessing}
-                    className="w-full py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 mb-3 disabled:opacity-50 flex items-center justify-center"
-                  >
-                       {isProcessing ? (
-                           <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                       ) : null}
-                      {editedItems.length === 0 ? 'Удалить Продажу' : 'Сохранить Изменения'}
-                  </button>
-                  
-                  {!isDeletingSale ? (
-                      <button
-                        onClick={() => setIsDeletingSale(true)}
-                        disabled={isProcessing}
-                        className="w-full py-3 text-red-500/70 hover:text-red-500 font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
-                      >
-                          Аннулировать Чек
-                      </button>
-                  ) : (
-                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 animate-fade-in">
-                          <p className="text-red-400 text-xs text-center mb-3">Товары вернутся на склад. Вы уверены?</p>
-                          <div className="flex gap-2">
-                              <button 
-                                onClick={() => setIsDeletingSale(false)} 
-                                disabled={isProcessing}
-                                className="flex-1 py-2 bg-zinc-800 text-white text-xs rounded-lg font-bold disabled:opacity-50"
-                              >
-                                  Отмена
-                              </button>
-                              <button 
-                                onClick={handleDeleteSale} 
-                                disabled={isProcessing}
-                                className="flex-1 py-2 bg-red-600 text-white text-xs rounded-lg font-bold flex items-center justify-center disabled:opacity-50"
-                              >
-                                  {isProcessing ? 'Удаление...' : 'Да, удалить'}
-                              </button>
-                          </div>
-                      </div>
+                  {!aiAnalysis && !isAnalyzing && (
+                    <button 
+                        onClick={handleGenerateAnalysis}
+                        className="bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-lg shadow-indigo-500/20"
+                    >
+                        Сгенерировать
+                    </button>
                   )}
               </div>
-          </div>,
-          document.body
+
+              {isAnalyzing && (
+                  <div className="flex items-center gap-3 text-zinc-400 text-sm animate-pulse">
+                      <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+                      Анализирую данные о продажах...
+                  </div>
+              )}
+
+              {aiAnalysis && (
+                  <div className="animate-fade-in">
+                      <p className="text-indigo-100 text-sm leading-relaxed whitespace-pre-line">
+                          {aiAnalysis}
+                      </p>
+                      <button 
+                        onClick={() => setAiAnalysis(null)}
+                        className="text-[10px] text-indigo-400/70 hover:text-indigo-300 mt-2 uppercase font-bold"
+                      >
+                          Скрыть
+                      </button>
+                  </div>
+              )}
+          </div>
       )}
 
-    </div>
-  );
-}
+      {/* LOW STOCK ALERT */}
+      {lowStockItems.length > 0 && (
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-3xl p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-orange-400 mb-1">
+                  <AlertCircle size={18} />
+                  <span className="font-bold text-sm uppercase tracking-wide">Заканчиваются</span>
+              </div>
+              {lowStockItems.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-sm px-2">
+                      <span className="text-zinc-300">{item.name} <span className="text-zinc-500">({item.variant})</span></span>
+                      <span className="text-orange-400 font-mono font-bold">{item.stock} шт</span>
+                  </div>
+              ))}
+              <button 
+                onClick={() => navigate('/inventory')}
+                className="text-center text-xs text-orange-400/70 hover:text-orange-300 mt-1 font-bold uppercase"
+              >
+                  Перейти на склад
+              </button>
+          </div>
+      )}
+
+      {/* REVENUE STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="

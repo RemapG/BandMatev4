@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { Item, CartItem, Sale, ItemVariant } from '../types';
@@ -15,6 +15,12 @@ export default function POSPage() {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+
+  // Sorted Inventory
+  const sortedInventory = useMemo(() => {
+    if (!currentBand) return [];
+    return [...currentBand.inventory].sort((a, b) => a.name.localeCompare(b.name));
+  }, [currentBand]);
 
   if (!currentBand) return null;
 
@@ -134,7 +140,7 @@ export default function POSPage() {
 
       {/* Product Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-32">
-          {currentBand.inventory.map(item => {
+          {sortedInventory.map(item => {
             const totalStock = item.variants.reduce((a, b) => a + b.stock, 0);
             return (
                 <button
