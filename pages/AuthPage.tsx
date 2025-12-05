@@ -83,7 +83,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-zinc-950 to-zinc-900">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-black">
       <div className="w-full max-w-sm space-y-8 animate-fade-in">
         <div className="flex flex-col items-center text-center">
           <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4 text-primary shadow-[0_0_15px_rgba(139,92,246,0.3)]">

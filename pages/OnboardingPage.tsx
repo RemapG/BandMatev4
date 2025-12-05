@@ -102,7 +102,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center p-6 relative bg-background">
+    <div className="h-screen flex items-center justify-center p-6 relative bg-black">
         {userBands.length > 0 && (
             <button 
                 onClick={() => navigate('/dashboard')}
