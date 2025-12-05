@@ -3,7 +3,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { User, Band, BandMember, UserRole } from './types';
 import { AuthService, BandService } from './services/storage';
-import { LayoutDashboard, ShoppingCart, Shirt, Users, LogOut, Music, ChevronDown, PlusCircle, User as UserIcon, Settings, Menu as MenuIcon, SlidersVertical } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Shirt, Users, LogOut, Music, ChevronDown, PlusCircle, User as UserIcon, Settings, Menu as MenuIcon, Settings2 } from 'lucide-react';
 
 // --- Pages ---
 import AuthPage from './pages/AuthPage';
@@ -41,7 +41,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { icon: LayoutDashboard, label: 'Главная', path: '/dashboard' },
     { icon: ShoppingCart, label: 'Касса', path: '/pos' },
     { icon: Shirt, label: 'Склад', path: '/inventory' },
-    { icon: SlidersVertical, label: 'Группа', path: '/band-settings' }, // Replaced Team with Band Settings
+    { icon: Settings2, label: 'Группа', path: '/band-settings' }, // Replaced Team with Band Settings, icon changed to Settings2
     { icon: Settings, label: 'Настройки', path: '/settings' },
   ];
 

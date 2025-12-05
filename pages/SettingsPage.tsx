@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useApp } from '../App';
-import { User, LogOut, ChevronRight, SlidersVertical, Music, User as UserIcon } from 'lucide-react';
+import { User, LogOut, ChevronRight, Settings2, Music, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function SettingsPage() {
@@ -41,7 +41,7 @@ export default function SettingsPage() {
             >
                 <div className="flex items-center gap-4">
                     <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                        <SlidersVertical size={20} />
+                        <Settings2 size={20} />
                     </div>
                     <div className="text-left">
                         <div className="text-white font-bold">Настройки Группы</div>
