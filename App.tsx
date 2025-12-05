@@ -316,6 +316,9 @@ export default function App() {
             user ? <AppLayout><SettingsPage /></AppLayout> : <Navigate to="/" />
           } />
 
+          {/* Catch-all route to prevent 'No routes matched' errors in preview environments */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+
         </Routes>
       </HashRouter>
     </AppContext.Provider>

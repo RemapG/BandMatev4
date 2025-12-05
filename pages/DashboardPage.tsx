@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [editedItems, setEditedItems] = useState<SaleItem[]>([]);
   const [isDeletingSale, setIsDeletingSale] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // New state to lock actions
   
   // Permissions
   const canEditSales = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.MODERATOR;
@@ -59,6 +60,7 @@ export default function DashboardPage() {
       setEditingSale(sale);
       setEditedItems(JSON.parse(JSON.stringify(sale.items))); // Deep copy
       setIsDeletingSale(false);
+      setIsProcessing(false);
   };
 
   const handleUpdateQuantity = (idx: number, delta: number) => {
@@ -79,7 +81,7 @@ export default function DashboardPage() {
   };
 
   const handleSaveSale = async () => {
-      if (!currentBand || !editingSale) return;
+      if (!currentBand || !editingSale || isProcessing) return;
 
       if (editedItems.length === 0) {
           // If all items removed, treat as delete
@@ -87,6 +89,7 @@ export default function DashboardPage() {
           return;
       }
 
+      setIsProcessing(true);
       const newTotal = editedItems.reduce((acc, item) => acc + (item.priceAtSale * item.quantity), 0);
       const updatedSale: Sale = {
           ...editingSale,
@@ -101,11 +104,15 @@ export default function DashboardPage() {
       } catch (e) {
           console.error(e);
           alert("Ошибка при обновлении продажи");
+      } finally {
+          setIsProcessing(false);
       }
   };
 
   const handleDeleteSale = async () => {
-      if (!currentBand || !editingSale) return;
+      if (!currentBand || !editingSale || isProcessing) return;
+      
+      setIsProcessing(true);
       try {
           await BandService.deleteSale(currentBand.id, editingSale);
           await refreshData();
@@ -113,6 +120,7 @@ export default function DashboardPage() {
       } catch (e) {
           console.error(e);
           alert("Ошибка при удалении продажи");
+          setIsProcessing(false);
       }
   };
 
@@ -303,8 +311,9 @@ export default function DashboardPage() {
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in touch-none">
               <div className="bg-zinc-950 border border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] relative animate-slide-up touch-pan-y">
                   <button 
-                    onClick={() => setEditingSale(null)}
-                    className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2 rounded-full hover:bg-zinc-900"
+                    onClick={() => !isProcessing && setEditingSale(null)}
+                    className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2 rounded-full hover:bg-zinc-900 disabled:opacity-50"
+                    disabled={isProcessing}
                   >
                       <X size={20} />
                   </button>
@@ -327,21 +336,24 @@ export default function DashboardPage() {
                                   <div className="flex items-center bg-black rounded-lg p-1 border border-zinc-800">
                                       <button 
                                         onClick={() => handleUpdateQuantity(idx, -1)}
-                                        className="w-7 h-7 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded transition-colors"
+                                        disabled={isProcessing}
+                                        className="w-7 h-7 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded transition-colors disabled:opacity-50"
                                       >
                                           <Minus size={12} />
                                       </button>
                                       <span className="w-8 text-center font-mono text-sm font-bold text-white">{item.quantity}</span>
                                       <button 
                                         onClick={() => handleUpdateQuantity(idx, 1)}
-                                        className="w-7 h-7 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded transition-colors"
+                                        disabled={isProcessing}
+                                        className="w-7 h-7 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded transition-colors disabled:opacity-50"
                                       >
                                           <Plus size={12} />
                                       </button>
                                   </div>
                                   <button 
                                     onClick={() => handleRemoveItem(idx)}
-                                    className="p-2 text-zinc-600 hover:text-red-500 transition-colors"
+                                    disabled={isProcessing}
+                                    className="p-2 text-zinc-600 hover:text-red-500 transition-colors disabled:opacity-50"
                                   >
                                       <Trash2 size={16} />
                                   </button>
@@ -363,15 +375,20 @@ export default function DashboardPage() {
 
                   <button
                     onClick={handleSaveSale}
-                    className="w-full py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 mb-3"
+                    disabled={isProcessing}
+                    className="w-full py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 mb-3 disabled:opacity-50 flex items-center justify-center"
                   >
+                       {isProcessing ? (
+                           <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                       ) : null}
                       {editedItems.length === 0 ? 'Удалить Продажу' : 'Сохранить Изменения'}
                   </button>
                   
                   {!isDeletingSale ? (
                       <button
                         onClick={() => setIsDeletingSale(true)}
-                        className="w-full py-3 text-red-500/70 hover:text-red-500 font-bold text-xs uppercase tracking-widest transition-colors"
+                        disabled={isProcessing}
+                        className="w-full py-3 text-red-500/70 hover:text-red-500 font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
                       >
                           Аннулировать Чек
                       </button>
@@ -379,8 +396,20 @@ export default function DashboardPage() {
                       <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 animate-fade-in">
                           <p className="text-red-400 text-xs text-center mb-3">Товары вернутся на склад. Вы уверены?</p>
                           <div className="flex gap-2">
-                              <button onClick={() => setIsDeletingSale(false)} className="flex-1 py-2 bg-zinc-800 text-white text-xs rounded-lg font-bold">Отмена</button>
-                              <button onClick={handleDeleteSale} className="flex-1 py-2 bg-red-600 text-white text-xs rounded-lg font-bold">Да, удалить</button>
+                              <button 
+                                onClick={() => setIsDeletingSale(false)} 
+                                disabled={isProcessing}
+                                className="flex-1 py-2 bg-zinc-800 text-white text-xs rounded-lg font-bold disabled:opacity-50"
+                              >
+                                  Отмена
+                              </button>
+                              <button 
+                                onClick={handleDeleteSale} 
+                                disabled={isProcessing}
+                                className="flex-1 py-2 bg-red-600 text-white text-xs rounded-lg font-bold flex items-center justify-center disabled:opacity-50"
+                              >
+                                  {isProcessing ? 'Удаление...' : 'Да, удалить'}
+                              </button>
                           </div>
                       </div>
                   )}
