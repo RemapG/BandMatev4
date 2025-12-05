@@ -52,7 +52,8 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   ];
 
   return (
-    <div className="flex flex-col h-screen w-full bg-black md:flex-row text-zinc-100 overflow-hidden">
+    // Updated container to use 100dvh (Dynamic Viewport Height) to avoid address bar issues
+    <div className="flex flex-col h-[100dvh] w-full bg-black md:flex-row text-zinc-100 overflow-hidden">
       {/* Desktop Sidebar (Hidden on Mobile) */}
       <div className="hidden md:flex flex-col w-72 bg-zinc-950 border-r border-zinc-900 p-6 z-20">
         <div className="flex items-center gap-3 mb-8 px-2">
@@ -151,7 +152,8 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full bg-black relative overflow-hidden">
+      {/* Added pt-safe to respect Top Notch area */}
+      <main className="flex-1 flex flex-col h-full bg-black relative overflow-hidden pt-safe">
         {/* Mobile Page Content - No Top Header */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pb-24 md:pb-0 md:p-10">
           <div className="max-w-7xl mx-auto min-h-full p-5 md:p-0">
@@ -161,26 +163,29 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       </main>
 
       {/* Mobile Bottom Nav - Floating Glass */}
-      <nav className="md:hidden fixed bottom-6 left-4 right-4 bg-zinc-900/80 backdrop-blur-xl border border-zinc-800/50 rounded-3xl p-2 flex justify-between items-center z-50 shadow-2xl shadow-black/50">
-        {mobileNavItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-2xl transition-all relative ${
-                isActive ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
-              {isActive && (
-                <span className="text-[10px] font-bold absolute -bottom-6 opacity-0 pointer-events-none">
-                    {item.label}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+      {/* Added pb-safe to push it up from Home Indicator */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 p-4 pb-safe z-50 pointer-events-none">
+        <div className="bg-zinc-900/85 backdrop-blur-2xl border border-zinc-800/50 rounded-3xl p-2 flex justify-between items-center shadow-2xl shadow-black/80 pointer-events-auto">
+          {mobileNavItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-2xl transition-all relative ${
+                  isActive ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                {isActive && (
+                  <span className="text-[10px] font-bold absolute -bottom-6 opacity-0 pointer-events-none">
+                      {item.label}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
     </div>
   );
@@ -188,7 +193,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 // --- Loading Component ---
 const LoadingScreen = () => (
-    <div className="h-screen w-screen flex flex-col items-center justify-center bg-black gap-4">
+    <div className="h-[100dvh] w-screen flex flex-col items-center justify-center bg-black gap-4">
         <div className="text-primary animate-pulse font-black text-3xl italic">BANDMATE</div>
         <div className="h-1 w-24 bg-zinc-800 rounded-full overflow-hidden">
             <div className="h-full bg-primary animate-slide-up w-full origin-left"></div>
