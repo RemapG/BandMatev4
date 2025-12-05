@@ -193,7 +193,7 @@ export const BandService = {
         id: bandData.id,
         name: bandData.name,
         imageUrl: bandData.image_url,
-        paymentQrUrl: bandData.payment_qr_url,
+        paymentQrUrl: (bandData as any).payment_qr_url,
         joinCode: bandData.join_code,
         members,
         inventory,
@@ -231,9 +231,15 @@ export const BandService = {
   updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string): Promise<void> => {
     if (USE_MOCK) return MockBand.updateBandDetails(bandId, name, imageUrl, paymentQrUrl);
     
+    const updatePayload: any = { 
+        name, 
+        image_url: imageUrl,
+        payment_qr_url: paymentQrUrl
+    };
+
     const { error } = await supabase
       .from('bands')
-      .update({ name, image_url: imageUrl, payment_qr_url: paymentQrUrl })
+      .update(updatePayload)
       .eq('id', bandId);
 
     if (error) throw new Error(error.message);
@@ -629,3 +635,4 @@ const MockBand = {
         localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
     }
 };
+    
