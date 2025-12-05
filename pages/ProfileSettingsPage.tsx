@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../App';
 import { AuthService, ImageService } from '../services/storage';
@@ -45,9 +44,9 @@ export default function ProfileSettingsPage() {
         await refreshData();
         alert('Профиль обновлен');
         navigate('/settings');
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
-        alert('Ошибка при сохранении');
+        alert(`Ошибка: ${e.message || e.error_description || 'Неизвестная ошибка'}`);
     } finally {
         setLoading(false);
     }

@@ -1,4 +1,3 @@
-
 import { Band, User, UserRole, Item, Sale, BandMember, SaleItem } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
@@ -129,7 +128,7 @@ export const AuthService = {
 
     const { error } = await supabase
         .from('profiles')
-        .upsert(updates);
+        .upsert(updates, { onConflict: 'id' });
 
     if (error) throw new Error(error.message);
   },
