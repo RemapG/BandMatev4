@@ -270,16 +270,29 @@ export const BandService = {
   approveRequest: async (bandId: string, userId: string) => {
     if (USE_MOCK) return MockBand.approveRequest(bandId, userId);
 
+    // Default role: MEMBER (Продажник)
     const { error } = await supabase.from('band_members').insert([{
         band_id: bandId,
         user_id: userId,
-        role: UserRole.MEMBER
+        role: UserRole.MEMBER 
     }]);
 
     if (error) throw new Error(error.message);
 
     await supabase.from('band_requests').delete()
         .eq('band_id', bandId).eq('user_id', userId);
+  },
+
+  updateMemberRole: async (bandId: string, userId: string, role: UserRole) => {
+    if (USE_MOCK) return MockBand.updateMemberRole(bandId, userId, role);
+
+    const { error } = await supabase
+      .from('band_members')
+      .update({ role })
+      .eq('band_id', bandId)
+      .eq('user_id', userId);
+
+    if (error) throw new Error(error.message);
   },
 
   recordSale: async (bandId: string, sale: Sale) => {
@@ -431,6 +444,7 @@ const MockBand = {
         const reqIdx = band.pendingRequests.findIndex(u => u.id === userId);
         if (reqIdx === -1) return;
         const user = band.pendingRequests[reqIdx];
+        // Set new member as UserRole.MEMBER (Продажник) by default
         band.members.push({ ...user, role: UserRole.MEMBER });
         band.pendingRequests.splice(reqIdx, 1);
         localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
@@ -440,6 +454,17 @@ const MockBand = {
         if (uIdx !== -1) {
             allUsers[uIdx].bandIds.push(bandId);
             localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(allUsers));
+        }
+    },
+    updateMemberRole: (bandId: string, userId: string, role: UserRole) => {
+        const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
+        const band = bands.find(b => b.id === bandId);
+        if (!band) return;
+        
+        const member = band.members.find(m => m.id === userId);
+        if (member) {
+            member.role = role;
+            localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
         }
     },
     recordSale: (bandId: string, sale: Sale) => {
