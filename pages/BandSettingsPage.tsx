@@ -4,12 +4,12 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { UserRole, BandMember, Sale, SaleItem } from '../types';
 import { BandService, ImageService } from '../services/storage';
-import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone, Trash2, AlertTriangle, ZoomIn, DollarSign, TrendingUp, ShoppingBag, Edit2, Minus, Plus, AlertCircle, ArrowLeft, Users, PieChart, History, Info, CreditCard } from 'lucide-react';
+import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone, Trash2, AlertTriangle, ZoomIn, DollarSign, TrendingUp, ShoppingBag, Edit2, Minus, Plus, AlertCircle, ArrowLeft, Users, PieChart, History, Info, CreditCard, Shirt, Package, FileText, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
 
-type SettingsView = 'main' | 'team' | 'stats' | 'history';
+type SettingsView = 'main' | 'general' | 'payments' | 'team' | 'stats' | 'history';
 
 export default function BandSettingsPage() {
   const { currentBand, user, refreshData } = useApp();
@@ -275,166 +275,91 @@ export default function BandSettingsPage() {
   const renderMainView = () => (
     <div className="space-y-6 animate-slide-up pb-24">
          {/* HEADER */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-2">
             <div className="h-12 w-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
                 <Settings size={24} />
             </div>
             <div>
-                <h2 className="text-2xl font-black text-white tracking-tighter uppercase italic">Настройки Группы</h2>
-                <p className="text-zinc-500 text-sm">Управление и статистика</p>
+                <h2 className="text-2xl font-black text-white tracking-tighter uppercase italic">Группа</h2>
+                <p className="text-zinc-500 text-sm">Настройки и управление</p>
             </div>
         </div>
 
-        {/* 1. INFO CARD */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
-            <div className="flex items-center gap-2 text-zinc-400 mb-2">
-                 <Info size={16} />
-                 <span className="text-xs font-bold uppercase tracking-widest">Основная информация</span>
-            </div>
-
-           <div className="flex flex-col items-center">
-               <label className={`relative group ${canEditInfo ? 'cursor-pointer' : ''}`}>
-                   <div className="w-28 h-28 rounded-full bg-zinc-800 border-2 border-dashed border-zinc-600 flex items-center justify-center overflow-hidden transition-colors hover:border-primary relative">
-                       {logoPreview ? (
-                           <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
-                       ) : (
-                           <Music className="text-zinc-500" size={32} />
-                       )}
-                       
-                       {canEditInfo && (
-                           <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                               <Upload size={20} className="text-white" />
-                           </div>
-                       )}
-                   </div>
-                   {canEditInfo && <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />}
-               </label>
-           </div>
-
-           <div className="space-y-4">
-               <div>
-                   <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">Название группы</label>
-                   <input
-                        type="text"
-                        value={bandName}
-                        onChange={(e) => setBandName(e.target.value)}
-                        disabled={!canEditInfo}
-                        className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-all font-bold disabled:opacity-50"
-                        placeholder="Название"
-                   />
-               </div>
-               <div>
-                   <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">Описание</label>
-                   <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        disabled={!canEditInfo}
-                        rows={3}
-                        className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-all text-sm resize-none disabled:opacity-50"
-                        placeholder="Краткое описание вашей группы..."
-                   />
-               </div>
-           </div>
-        </div>
-
-        {/* 2. PAYMENTS CARD */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">
-            <div className="flex items-center gap-2 text-zinc-400 mb-2">
-                 <CreditCard size={16} />
-                 <span className="text-xs font-bold uppercase tracking-widest">Способы оплаты (Касса)</span>
-            </div>
-
-            {/* QR Config */}
-            <div className="bg-black/20 p-4 rounded-2xl border border-zinc-800/50">
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-3">
-                         <div className="w-12 h-12 rounded-lg bg-zinc-800 flex items-center justify-center overflow-hidden border border-zinc-700">
-                            {qrPreview ? (
-                                <img src={qrPreview} className="w-full h-full object-cover" /> 
-                            ) : (
-                                <QrCode size={20} className="text-zinc-600" />
-                            )}
-                        </div>
-                        <div>
-                             <h4 className="font-bold text-white text-sm">QR Код</h4>
-                             <p className="text-xs text-zinc-500">Для оплаты по СБП</p>
-                        </div>
-                    </div>
-                    {canEditInfo && (
-                        <button 
-                            onClick={() => setShowQr(!showQr)}
-                            className={`w-12 h-6 rounded-full relative transition-colors ${showQr ? 'bg-primary' : 'bg-zinc-700'}`}
-                        >
-                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${showQr ? 'left-7' : 'left-1'}`}></div>
-                        </button>
-                    )}
-                </div>
-                
-                {canEditInfo && (
-                    <label className="block w-full text-center py-2 rounded-lg border border-dashed border-zinc-700 text-zinc-400 text-xs hover:text-white hover:border-zinc-500 cursor-pointer transition-colors">
-                        {qrPreview ? 'Изменить изображение' : 'Загрузить QR код'}
-                        <input type="file" accept="image/*" onChange={handleQrChange} className="hidden" />
-                    </label>
+        {/* BAND CARD (Read Only Header) */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-zinc-800 border-2 border-zinc-700 overflow-hidden shrink-0">
+                {currentBand.imageUrl ? (
+                    <img src={currentBand.imageUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                    <Music size={24} className="text-zinc-600 m-auto mt-4" />
                 )}
             </div>
-
-            {/* Phone Config */}
-            <div className="bg-black/20 p-4 rounded-2xl border border-zinc-800/50">
-                <div className="flex justify-between items-start mb-4">
-                     <div className="flex items-center gap-3">
-                         <div className="w-12 h-12 rounded-lg bg-zinc-800 flex items-center justify-center border border-zinc-700">
-                             <Phone size={20} className="text-zinc-600" />
-                         </div>
-                        <div>
-                             <h4 className="font-bold text-white text-sm">Номер телефона</h4>
-                             <p className="text-xs text-zinc-500">Для перевода</p>
-                        </div>
-                    </div>
-                    {canEditInfo && (
-                        <button 
-                            onClick={() => setShowPhone(!showPhone)}
-                            className={`w-12 h-6 rounded-full relative transition-colors ${showPhone ? 'bg-primary' : 'bg-zinc-700'}`}
-                        >
-                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${showPhone ? 'left-7' : 'left-1'}`}></div>
-                        </button>
-                    )}
-                </div>
-
-                <div className="space-y-3">
-                    <input
-                        type="text"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        disabled={!canEditInfo}
-                        placeholder="+7 (999) 000-00-00"
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:border-primary outline-none disabled:opacity-50"
-                    />
-                    <input
-                        type="text"
-                        value={recipientName}
-                        onChange={(e) => setRecipientName(e.target.value)}
-                        disabled={!canEditInfo}
-                        placeholder="ФИО Получателя (для сверки)"
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:border-primary outline-none disabled:opacity-50"
-                    />
-                </div>
+            <div>
+                <h3 className="text-xl font-bold text-white leading-tight">{currentBand.name}</h3>
+                <p className="text-zinc-500 text-xs mt-1 uppercase tracking-wider">{getRoleLabel(currentMember?.role || UserRole.MEMBER)}</p>
             </div>
-
-            {canEditInfo && (
-               <button
-                 onClick={handleSaveSettings}
-                 disabled={loading}
-                 className="w-full py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 mt-4"
-               >
-                 {loading ? 'Сохранение...' : 'Сохранить изменения'}
-               </button>
-           )}
         </div>
 
         {/* NAVIGATION LINKS */}
         <div className="space-y-2">
-            <h4 className="text-xs text-zinc-500 font-bold uppercase tracking-widest px-2">Разделы</h4>
+            <h4 className="text-xs text-zinc-500 font-bold uppercase tracking-widest px-2">Основное</h4>
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden divide-y divide-zinc-800">
+                
+                 {/* GENERAL INFO */}
+                 {canEditInfo && (
+                    <button 
+                        onClick={() => setCurrentView('general')}
+                        className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/50 transition-colors"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-300">
+                                <FileText size={20} />
+                            </div>
+                            <div className="text-left">
+                                <div className="text-white font-bold">Основная информация</div>
+                                <div className="text-xs text-zinc-500">Название, лого, описание</div>
+                            </div>
+                        </div>
+                        <ChevronRight size={18} className="text-zinc-600" />
+                    </button>
+                 )}
+
+                {/* INVENTORY LINK */}
+                <button 
+                    onClick={() => navigate('/inventory')}
+                    className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/50 transition-colors"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-300">
+                            <Shirt size={20} />
+                        </div>
+                        <div className="text-left">
+                            <div className="text-white font-bold">Склад / Товары</div>
+                            <div className="text-xs text-zinc-500">Управление инвентарем</div>
+                        </div>
+                    </div>
+                    <ChevronRight size={18} className="text-zinc-600" />
+                </button>
+
+                {/* PAYMENTS */}
+                {canEditInfo && (
+                    <button 
+                        onClick={() => setCurrentView('payments')}
+                        className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/50 transition-colors"
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-300">
+                                <Wallet size={20} />
+                            </div>
+                            <div className="text-left">
+                                <div className="text-white font-bold">Оплата и Касса</div>
+                                <div className="text-xs text-zinc-500">QR, Телефон, Получатель</div>
+                            </div>
+                        </div>
+                        <ChevronRight size={18} className="text-zinc-600" />
+                    </button>
+                )}
+
                 <button 
                     onClick={() => setCurrentView('team')}
                     className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/50 transition-colors"
@@ -489,6 +414,185 @@ export default function BandSettingsPage() {
             </div>
         </div>
     </div>
+  );
+
+  const renderGeneralView = () => (
+    <div className="space-y-6 animate-slide-up pb-24 h-full">
+         <div className="flex items-center gap-2">
+            <button 
+                onClick={() => setCurrentView('main')}
+                className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-900 transition-colors"
+            >
+                <ArrowLeft size={24} />
+            </button>
+            <h2 className="text-2xl font-black text-white tracking-tighter uppercase italic">Инфо</h2>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
+           <div className="flex flex-col items-center">
+               <label className={`relative group ${canEditInfo ? 'cursor-pointer' : ''}`}>
+                   <div className="w-32 h-32 rounded-full bg-zinc-800 border-2 border-dashed border-zinc-600 flex items-center justify-center overflow-hidden transition-colors hover:border-primary relative">
+                       {logoPreview ? (
+                           <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                       ) : (
+                           <Music className="text-zinc-500" size={32} />
+                       )}
+                       
+                       {canEditInfo && (
+                           <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                               <Upload size={24} className="text-white" />
+                           </div>
+                       )}
+                   </div>
+                   {canEditInfo && <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />}
+               </label>
+               <p className="text-xs text-zinc-500 mt-2 font-medium">Нажмите на фото, чтобы изменить</p>
+           </div>
+
+           <div className="space-y-4">
+               <div>
+                   <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">Название группы</label>
+                   <input
+                        type="text"
+                        value={bandName}
+                        onChange={(e) => setBandName(e.target.value)}
+                        disabled={!canEditInfo}
+                        className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-all font-bold disabled:opacity-50"
+                        placeholder="Название"
+                   />
+               </div>
+               <div>
+                   <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-2 pl-1">Описание</label>
+                   <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        disabled={!canEditInfo}
+                        rows={5}
+                        className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-all text-sm resize-none disabled:opacity-50"
+                        placeholder="Краткое описание вашей группы..."
+                   />
+               </div>
+           </div>
+
+           {canEditInfo && (
+               <button
+                 onClick={handleSaveSettings}
+                 disabled={loading}
+                 className="w-full py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+               >
+                 {loading ? 'Сохранение...' : 'Сохранить изменения'}
+               </button>
+           )}
+        </div>
+    </div>
+  );
+
+  const renderPaymentsView = () => (
+      <div className="space-y-6 animate-slide-up pb-24 h-full">
+         <div className="flex items-center gap-2">
+            <button 
+                onClick={() => setCurrentView('main')}
+                className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-900 transition-colors"
+            >
+                <ArrowLeft size={24} />
+            </button>
+            <h2 className="text-2xl font-black text-white tracking-tighter uppercase italic">Оплата</h2>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">
+            {/* QR Config */}
+            <div className="bg-black/20 p-4 rounded-2xl border border-zinc-800/50">
+                <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-3">
+                         <div className="w-12 h-12 rounded-lg bg-zinc-800 flex items-center justify-center overflow-hidden border border-zinc-700">
+                            {qrPreview ? (
+                                <img src={qrPreview} className="w-full h-full object-cover" /> 
+                            ) : (
+                                <QrCode size={20} className="text-zinc-600" />
+                            )}
+                        </div>
+                        <div>
+                             <h4 className="font-bold text-white text-sm">QR Код</h4>
+                             <p className="text-xs text-zinc-500">Для оплаты по СБП</p>
+                        </div>
+                    </div>
+                    {canEditInfo && (
+                        <button 
+                            onClick={() => setShowQr(!showQr)}
+                            className={`w-12 h-6 rounded-full relative transition-colors ${showQr ? 'bg-primary' : 'bg-zinc-700'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${showQr ? 'left-7' : 'left-1'}`}></div>
+                        </button>
+                    )}
+                </div>
+                
+                {canEditInfo && (
+                    <label className="block w-full text-center py-3 rounded-xl border border-dashed border-zinc-700 text-zinc-400 text-xs hover:text-white hover:border-zinc-500 cursor-pointer transition-colors bg-black/20">
+                        {qrPreview ? 'Изменить изображение QR' : 'Загрузить QR код'}
+                        <input type="file" accept="image/*" onChange={handleQrChange} className="hidden" />
+                    </label>
+                )}
+            </div>
+
+            {/* Phone Config */}
+            <div className="bg-black/20 p-4 rounded-2xl border border-zinc-800/50">
+                <div className="flex justify-between items-start mb-4">
+                     <div className="flex items-center gap-3">
+                         <div className="w-12 h-12 rounded-lg bg-zinc-800 flex items-center justify-center border border-zinc-700">
+                             <Phone size={20} className="text-zinc-600" />
+                         </div>
+                        <div>
+                             <h4 className="font-bold text-white text-sm">Номер телефона</h4>
+                             <p className="text-xs text-zinc-500">Для перевода</p>
+                        </div>
+                    </div>
+                    {canEditInfo && (
+                        <button 
+                            onClick={() => setShowPhone(!showPhone)}
+                            className={`w-12 h-6 rounded-full relative transition-colors ${showPhone ? 'bg-primary' : 'bg-zinc-700'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${showPhone ? 'left-7' : 'left-1'}`}></div>
+                        </button>
+                    )}
+                </div>
+
+                <div className="space-y-3">
+                    <div>
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-1 pl-1">Номер</label>
+                        <input
+                            type="text"
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            disabled={!canEditInfo}
+                            placeholder="+7 (999) 000-00-00"
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-3 text-white text-sm focus:border-primary outline-none disabled:opacity-50"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-1 pl-1">Получатель (для проверки)</label>
+                        <input
+                            type="text"
+                            value={recipientName}
+                            onChange={(e) => setRecipientName(e.target.value)}
+                            disabled={!canEditInfo}
+                            placeholder="Иван И."
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-3 text-white text-sm focus:border-primary outline-none disabled:opacity-50"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {canEditInfo && (
+               <button
+                 onClick={handleSaveSettings}
+                 disabled={loading}
+                 className="w-full py-4 rounded-xl bg-primary text-white font-bold uppercase tracking-widest text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 mt-4"
+               >
+                 {loading ? 'Сохранение...' : 'Сохранить изменения'}
+               </button>
+           )}
+        </div>
+      </div>
   );
 
   const renderStatsView = () => (
@@ -595,7 +699,7 @@ export default function BandSettingsPage() {
             {currentBand.members.map(member => (
               <button 
                 key={member.id} 
-                onClick={() => openMemberProfile(member.id)} // CHANGED: Navigate to profile
+                onClick={() => openMemberProfile(member.id)} 
                 className={`w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between transition-all text-left hover:bg-zinc-800 active:scale-[0.99]`}
               >
                 <div className="flex items-center gap-4">
@@ -668,6 +772,8 @@ export default function BandSettingsPage() {
     // Updated padding: p-5 on mobile, md:p-10 on desktop
     <div className="h-full relative p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] md:p-10">
        {currentView === 'main' && renderMainView()}
+       {currentView === 'general' && renderGeneralView()}
+       {currentView === 'payments' && renderPaymentsView()}
        {currentView === 'team' && renderTeamView()}
        {currentView === 'stats' && renderStatsView()}
        {currentView === 'history' && renderHistoryView()}

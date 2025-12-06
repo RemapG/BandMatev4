@@ -1,16 +1,19 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { Item, ItemVariant, UserRole } from '../types';
 import { BandService, ImageService } from '../services/storage';
-import { Plus, Edit2, Search, Package, Image as ImageIcon, Trash2, X, AlertTriangle, ChevronRight, ZoomIn, Check } from 'lucide-react';
+import { Plus, Edit2, Search, Package, Image as ImageIcon, Trash2, X, AlertTriangle, ChevronRight, ZoomIn, Check, ChevronLeft } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
+import { useNavigate } from 'react-router-dom';
 
 export default function InventoryPage() {
   const { currentBand, user, refreshData } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
   
   // Form State
   const [currentItemId, setCurrentItemId] = useState<string | null>(null);
@@ -211,10 +214,19 @@ export default function InventoryPage() {
     <div className="space-y-6 h-full flex flex-col pb-24 p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] md:p-10">
       {/* Header */}
       <div className="flex items-center justify-between pt-4">
-        <div>
-            <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic drop-shadow-lg">Склад</h2>
-            <div className="h-1 w-12 bg-primary mt-1 rounded-full"></div>
+        <div className="flex items-center gap-2">
+            <button 
+                onClick={() => navigate('/band-settings')}
+                className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-900 transition-colors"
+            >
+                <ChevronLeft size={24} />
+            </button>
+            <div>
+                <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic drop-shadow-lg">Склад</h2>
+                <div className="h-1 w-12 bg-primary mt-1 rounded-full"></div>
+            </div>
         </div>
+        
         {canEdit && (
             <button 
                 onClick={() => handleOpenEdit()}

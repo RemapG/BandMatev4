@@ -70,3 +70,25 @@ export interface CartItem extends Item {
   selectedVariant: string;
   quantity: number;
 }
+
+// --- PROJECT MANAGEMENT TYPES ---
+
+export type ProjectType = 'SONG' | 'EVENT';
+
+export interface Task {
+  id: string;
+  projectId: string;
+  title: string;
+  isCompleted: boolean;
+  linkUrl?: string;
+}
+
+export interface Project {
+  id: string;
+  bandId: string;
+  title: string;
+  type: ProjectType;
+  status: 'IN_PROGRESS' | 'COMPLETED';
+  tasks: Task[];
+  createdAt: string;
+}

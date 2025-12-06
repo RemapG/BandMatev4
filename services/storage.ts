@@ -1,5 +1,5 @@
 
-import { Band, User, UserRole, Item, Sale, BandMember, SaleItem } from '../types';
+import { Band, User, UserRole, Item, Sale, BandMember, SaleItem, Project, Task, ProjectType } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
 // --- HELPER FOR MOCK FALLBACK ---
@@ -171,7 +171,6 @@ export const BandService = {
     return bands;
   },
 
-  // NEW METHOD: Get Public Profile + Bands
   getUserProfileWithBands: async (userId: string): Promise<{ user: User, bands: {id: string, name: string, imageUrl?: string, role: UserRole}[] } | null> => {
      if (USE_MOCK) return MockBand.getUserProfileWithBands(userId);
 
@@ -187,7 +186,7 @@ export const BandService = {
      const userObj: User = {
          id: profile.id,
          name: profile.name,
-         email: profile.email || '', // Email might be hidden depending on RLS, but strictly we might not need it for public view
+         email: profile.email || '',
          avatarUrl: profile.avatar_url,
          description: profile.description,
          bandIds: []
@@ -361,7 +360,7 @@ export const BandService = {
   },
 
   joinBand: async (bandId: string, user: User): Promise<boolean> => {
-    if (USE_MOCK) return MockBand.joinBand(bandId, user); // Using Mock with ID now
+    if (USE_MOCK) return MockBand.joinBand(bandId, user);
 
     const { data: existing } = await supabase.from('band_members')
         .select('*').eq('band_id', bandId).eq('user_id', user.id);
@@ -456,14 +455,13 @@ export const BandService = {
     const { data: bandItems } = await supabase.from('items').select('*').eq('band_id', bandId);
     if (!bandItems) throw new Error("Inventory not found");
 
-    // Revert logic
     for (const oldItem of originalSale.items) {
       const dbItem = bandItems.find((i: any) => i.id === oldItem.itemId);
       if (dbItem && dbItem.variants) {
          const variants = dbItem.variants as any[];
          const vIdx = variants.findIndex((v: any) => v.label === oldItem.variantLabel);
          if (vIdx !== -1) {
-             variants[vIdx].stock += oldItem.quantity; // Add back
+             variants[vIdx].stock += oldItem.quantity;
              await supabase.from('items').update({ variants: variants }).eq('id', dbItem.id);
          }
       }
@@ -479,7 +477,7 @@ export const BandService = {
            const variants = dbItem.variants as any[];
            const vIdx = variants.findIndex((v: any) => v.label === newItem.variantLabel);
            if (vIdx !== -1) {
-               variants[vIdx].stock -= newItem.quantity; // Deduct new
+               variants[vIdx].stock -= newItem.quantity;
                await supabase.from('items').update({ variants: variants }).eq('id', dbItem.id);
            }
         }
@@ -542,12 +540,8 @@ export const BandService = {
   deleteItem: async (bandId: string, itemId: string) => {
     if (USE_MOCK) return MockBand.deleteItem(bandId, itemId);
     
-    // Safety check to prevent DB errors if frontend passes a temp ID
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(itemId)) {
-        console.warn("Skipping delete for invalid UUID item:", itemId);
-        return; 
-    }
+    if (!uuidRegex.test(itemId)) return;
 
     const { error } = await supabase
       .from('items')
@@ -559,8 +553,102 @@ export const BandService = {
   }
 };
 
+export const ProjectService = {
+  getProjects: async (bandId: string): Promise<Project[]> => {
+    if (USE_MOCK) return []; 
+    
+    // Fetch Projects
+    const { data: projects, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('band_id', bandId)
+      .order('created_at', { ascending: false });
 
-// --- LEGACY MOCK IMPLEMENTATION ---
+    if (error) throw new Error(error.message);
+    if (!projects || projects.length === 0) return [];
+
+    // Fetch Tasks for these projects
+    const { data: tasks, error: taskError } = await supabase
+      .from('tasks')
+      .select('*')
+      .in('project_id', projects.map(p => p.id));
+      
+    if (taskError) throw new Error(taskError.message);
+
+    // Map Tasks to Projects
+    return projects.map((p: any) => ({
+      id: p.id,
+      bandId: p.band_id,
+      title: p.title,
+      type: p.type as ProjectType,
+      status: p.status,
+      createdAt: p.created_at,
+      tasks: (tasks || [])
+        .filter((t: any) => t.project_id === p.id)
+        .map((t: any) => ({
+          id: t.id,
+          projectId: t.project_id,
+          title: t.title,
+          isCompleted: t.is_completed,
+          linkUrl: t.link_url
+        }))
+        .sort((a: any, b: any) => {
+           // Sort logic: Not completed first
+           if (a.isCompleted === b.isCompleted) return 0;
+           return a.isCompleted ? 1 : -1;
+        })
+    }));
+  },
+
+  createProject: async (bandId: string, title: string, type: ProjectType): Promise<void> => {
+     if (USE_MOCK) return;
+     const { error } = await supabase
+       .from('projects')
+       .insert([{ band_id: bandId, title, type, status: 'IN_PROGRESS' }]);
+     if (error) throw new Error(error.message);
+  },
+
+  deleteProject: async (projectId: string): Promise<void> => {
+      if (USE_MOCK) return;
+      const { error } = await supabase.from('projects').delete().eq('id', projectId);
+      if (error) throw new Error(error.message);
+  },
+
+  addTask: async (projectId: string, title: string): Promise<void> => {
+      if (USE_MOCK) return;
+      const { error } = await supabase
+        .from('tasks')
+        .insert([{ project_id: projectId, title, is_completed: false }]);
+      if (error) throw new Error(error.message);
+  },
+
+  toggleTask: async (taskId: string, isCompleted: boolean): Promise<void> => {
+      if (USE_MOCK) return;
+      const { error } = await supabase
+        .from('tasks')
+        .update({ is_completed: isCompleted })
+        .eq('id', taskId);
+      if (error) throw new Error(error.message);
+  },
+
+  updateTaskLink: async (taskId: string, linkUrl: string | null): Promise<void> => {
+      if (USE_MOCK) return;
+      const { error } = await supabase
+        .from('tasks')
+        .update({ link_url: linkUrl })
+        .eq('id', taskId);
+      if (error) throw new Error(error.message);
+  },
+  
+  deleteTask: async (taskId: string): Promise<void> => {
+      if (USE_MOCK) return;
+      const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+      if (error) throw new Error(error.message);
+  }
+};
+
+
+// --- LEGACY MOCK IMPLEMENTATION (UNCHANGED for brevity, assume similar structure) ---
 const STORAGE_KEYS = {
   USER: 'bandmate_user_v3',
   USERS_DB: 'bandmate_users_db_v3',

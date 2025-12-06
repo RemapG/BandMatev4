@@ -3,7 +3,7 @@ import React, { useState, useEffect, createContext, useContext, useRef, useLayou
 import { HashRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { User, Band, BandMember, UserRole } from './types';
 import { AuthService, BandService } from './services/storage';
-import { LayoutDashboard, ShoppingCart, Shirt, Users, LogOut, Music, ChevronDown, PlusCircle, User as UserIcon, Settings, Menu as MenuIcon, Settings2 } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Shirt, Users, LogOut, Music, ChevronDown, PlusCircle, User as UserIcon, Settings, Menu as MenuIcon, Settings2, FolderKanban } from 'lucide-react';
 
 // --- Pages ---
 import AuthPage from './pages/AuthPage';
@@ -16,6 +16,7 @@ import BandSettingsPage from './pages/BandSettingsPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
 import UserProfilePage from './pages/UserProfilePage';
+import ProjectsPage from './pages/ProjectsPage';
 
 // --- Context ---
 interface AppContextType {
@@ -67,8 +68,9 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const desktopNavItems = [
     { icon: LayoutDashboard, label: 'Главная', path: '/dashboard' },
     { icon: ShoppingCart, label: 'Касса', path: '/pos' },
-    { icon: Shirt, label: 'Склад', path: '/inventory' },
-    { icon: Settings2, label: 'Группа', path: '/band-settings' }, // Replaced Team with Band Settings, icon changed to Settings2
+    { icon: FolderKanban, label: 'Проекты', path: '/projects' },
+    // Inventory removed from here
+    { icon: Settings2, label: 'Группа', path: '/band-settings' }, 
     { icon: Settings, label: 'Настройки', path: '/settings' },
   ];
 
@@ -76,7 +78,8 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const mobileNavItems = [
     { icon: LayoutDashboard, label: 'Главная', path: '/dashboard' },
     { icon: ShoppingCart, label: 'Касса', path: '/pos' },
-    { icon: Shirt, label: 'Склад', path: '/inventory' },
+    { icon: FolderKanban, label: 'Проекты', path: '/projects' },
+    // Inventory removed from here
     { icon: Settings2, label: 'Группа', path: '/band-settings' },
     { icon: MenuIcon, label: 'Меню', path: '/settings' },
   ];
@@ -371,6 +374,10 @@ export default function App() {
            {/* New Band Settings Route instead of Team */}
            <Route path="/band-settings" element={
             user && currentBand ? <AppLayout><BandSettingsPage /></AppLayout> : <Navigate to="/" />
+          } />
+
+           <Route path="/projects" element={
+            user && currentBand ? <AppLayout><ProjectsPage /></AppLayout> : <Navigate to="/" />
           } />
 
           <Route path="/settings" element={
