@@ -75,6 +75,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { icon: LayoutDashboard, label: 'Главная', path: '/dashboard' },
     { icon: ShoppingCart, label: 'Касса', path: '/pos' },
     { icon: Shirt, label: 'Склад', path: '/inventory' },
+    { icon: Settings2, label: 'Группа', path: '/band-settings' },
     { icon: MenuIcon, label: 'Меню', path: '/settings' },
   ];
 
