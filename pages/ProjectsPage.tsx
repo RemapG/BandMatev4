@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../App';
 import { ProjectService } from '../services/storage';
 import { Project, Task, ProjectType, Comment } from '../types';
-import { FolderKanban, Plus, Music, Calendar, ChevronRight, X, CheckCircle, Circle, Link as LinkIcon, ExternalLink, Trash2, Mic2, Mic, MapPin, Navigation, Clock, AlignLeft, FileText, Check, Edit2, MessageSquare, Send, User as UserIcon } from 'lucide-react';
+import { FolderKanban, Plus, Music, Calendar, ChevronRight, X, CheckCircle, Circle, Link as LinkIcon, ExternalLink, Trash2, Mic2, Mic, MapPin, Navigation, Clock, AlignLeft, FileText, Check, Edit2, MessageSquare, Send, User as UserIcon, AlertTriangle } from 'lucide-react';
 
 export default function ProjectsPage() {
   const { currentBand, user } = useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -51,6 +53,21 @@ export default function ProjectsPage() {
   const [loadingComments, setLoadingComments] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // --- CONFIRMATION MODAL STATE ---
+  const [confirmState, setConfirmState] = useState<{
+      isOpen: boolean;
+      type: 'DELETE_PROJECT' | 'DELETE_COMMENT' | null;
+      targetId: string | null;
+      title: string;
+      message: string;
+  }>({
+      isOpen: false,
+      type: null,
+      targetId: null,
+      title: '',
+      message: ''
+  });
+
   const fetchProjects = async () => {
       if (!currentBand) return;
       try {
@@ -72,6 +89,18 @@ export default function ProjectsPage() {
   useEffect(() => {
       fetchProjects();
   }, [currentBand]);
+
+  // Handle URL Params for Deep Linking
+  useEffect(() => {
+      const projectId = searchParams.get('id');
+      if (projectId && projects.length > 0) {
+          const target = projects.find(p => p.id === projectId);
+          if (target) {
+              setActiveProject(target);
+              setActiveTab(target.type); // Switch tab to match project type
+          }
+      }
+  }, [projects, searchParams]);
 
   // Load comments when active project changes
   useEffect(() => {
@@ -129,6 +158,13 @@ export default function ProjectsPage() {
   const handleOpenProject = (project: Project) => {
       setActiveProject(project);
       setIsEditingProject(false);
+      // Optional: Update URL to reflect state without reloading
+      setSearchParams({ id: project.id });
+  };
+
+  const handleCloseProject = () => {
+      setActiveProject(null);
+      setSearchParams({});
   };
 
   // --- EDIT PROJECT LOGIC ---
@@ -190,17 +226,15 @@ export default function ProjectsPage() {
       fetchProjects();
   };
 
-  const handleDeleteProject = async (id: string) => {
-      if (confirm('Удалить этот проект?')) {
-          try {
-            await ProjectService.deleteProject(id);
-            setActiveProject(null);
-            fetchProjects();
-          } catch (e: any) {
-            console.error(e);
-            alert("Ошибка при удалении проекта. Возможно, у вас нет прав.");
-          }
-      }
+  // Replaced confirm() with Custom Modal Request
+  const requestDeleteProject = (id: string) => {
+      setConfirmState({
+          isOpen: true,
+          type: 'DELETE_PROJECT',
+          targetId: id,
+          title: 'Удалить проект?',
+          message: 'Это действие нельзя отменить. Все задачи и переписка будут удалены.'
+      });
   };
   
   const handleDeleteTask = async (id: string) => {
@@ -245,20 +279,40 @@ export default function ProjectsPage() {
       }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
-    if (!confirm("Удалить сообщение?")) return;
-    
-    // Optimistic remove
-    setComments(prev => prev.filter(c => c.id !== commentId));
-    
-    try {
-        await ProjectService.deleteProjectComment(commentId);
-    } catch (e) {
-        console.error(e);
-        alert("Ошибка при удалении сообщения");
-        // Revert (fetch again)
-        if(activeProject) fetchComments(activeProject.id);
-    }
+  // Replaced confirm() with Custom Modal Request
+  const requestDeleteComment = (commentId: string) => {
+      setConfirmState({
+          isOpen: true,
+          type: 'DELETE_COMMENT',
+          targetId: commentId,
+          title: 'Удалить сообщение?',
+          message: 'Вы уверены, что хотите удалить это сообщение?'
+      });
+  };
+
+  // --- EXECUTE ACTIONS (Called by Modal) ---
+  const executeAction = async () => {
+      if (!confirmState.targetId || !confirmState.type) return;
+
+      const { type, targetId } = confirmState;
+      // Close modal immediately
+      setConfirmState({ ...confirmState, isOpen: false });
+
+      try {
+          if (type === 'DELETE_PROJECT') {
+              await ProjectService.deleteProject(targetId);
+              handleCloseProject();
+              fetchProjects();
+          } else if (type === 'DELETE_COMMENT') {
+              // Optimistic remove
+              setComments(prev => prev.filter(c => c.id !== targetId));
+              await ProjectService.deleteProjectComment(targetId);
+              if (activeProject) fetchComments(activeProject.id);
+          }
+      } catch (e) {
+          console.error(e);
+          alert("Ошибка при выполнении действия. Проверьте права доступа.");
+      }
   };
 
   const calculateProgress = (tasks: Task[]) => {
@@ -272,7 +326,8 @@ export default function ProjectsPage() {
       window.open(url, '_blank');
   };
 
-  const filteredProjects = projects.filter(p => p.type === activeTab);
+  // FILTER: Only show active projects. Completed/Archived projects are shown in BandSettings -> Archive.
+  const filteredProjects = projects.filter(p => p.type === activeTab && p.status === 'IN_PROGRESS');
 
   if (!currentBand) return null;
 
@@ -330,7 +385,7 @@ export default function ProjectsPage() {
         ) : filteredProjects.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 border border-zinc-800 border-dashed rounded-3xl bg-zinc-900/20">
                 <FolderKanban size={48} className="mb-4 opacity-50" />
-                <p>Нет проектов в этом разделе</p>
+                <p>Нет активных проектов</p>
                 <button onClick={openCreateModal} className="text-purple-400 text-sm font-bold mt-2">Создать</button>
             </div>
         ) : (
@@ -536,7 +591,7 @@ export default function ProjectsPage() {
             <div className="fixed inset-0 z-[60] bg-zinc-950 flex flex-col animate-fade-in">
                  {/* Header */}
                  <div className="p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] flex items-center justify-between border-b border-zinc-900 bg-zinc-950 z-20">
-                      <button onClick={() => setActiveProject(null)} className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full">
+                      <button onClick={handleCloseProject} className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full">
                           <ChevronRight className="rotate-180" size={24} />
                       </button>
                       
@@ -569,7 +624,7 @@ export default function ProjectsPage() {
                                 </button>
                             )
                         )}
-                        <button onClick={() => handleDeleteProject(activeProject.id)} className="p-2 text-zinc-600 hover:text-red-500">
+                        <button onClick={() => requestDeleteProject(activeProject.id)} className="p-2 text-zinc-600 hover:text-red-500">
                             <Trash2 size={20} />
                         </button>
                       </div>
@@ -806,7 +861,7 @@ export default function ProjectsPage() {
                                                     </span>
                                                     {isMe && (
                                                         <button 
-                                                            onClick={() => handleDeleteComment(comment.id)}
+                                                            onClick={() => requestDeleteComment(comment.id)}
                                                             className="text-zinc-600 hover:text-red-500"
                                                             title="Удалить сообщение"
                                                         >
@@ -867,6 +922,39 @@ export default function ProjectsPage() {
                          </div>
                      </form>
                  )}
+            </div>,
+            document.body
+        )}
+
+        {/* CUSTOM CONFIRMATION MODAL */}
+        {confirmState.isOpen && createPortal(
+            <div className="fixed inset-0 z-[80] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
+                <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl animate-slide-up">
+                    <div className="flex flex-col items-center text-center mb-6">
+                        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-4">
+                            <AlertTriangle size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">{confirmState.title}</h3>
+                        <p className="text-zinc-400 text-sm leading-relaxed">
+                            {confirmState.message}
+                        </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                            className="flex-1 py-3 bg-zinc-800 rounded-xl font-bold text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+                        >
+                            Отмена
+                        </button>
+                        <button 
+                            onClick={executeAction}
+                            className="flex-1 py-3 bg-red-600 rounded-xl font-bold text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20"
+                        >
+                            Удалить
+                        </button>
+                    </div>
+                </div>
             </div>,
             document.body
         )}

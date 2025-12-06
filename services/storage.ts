@@ -231,7 +231,7 @@ export const BandService = {
         avatarUrl: m.profiles?.avatar_url,
         description: m.profiles?.description,
         bandIds: [],
-        role: m.role as UserRole
+        role: m.role as string
     })).filter((m: any) => m.id);
 
     const { data: itemsData } = await supabase.from('items').select('*').eq('band_id', bandId);
@@ -567,6 +567,53 @@ export const ProjectService = {
     if (error) throw new Error(error.message);
     if (!projects || projects.length === 0) return [];
 
+    // AUTO-ARCHIVE LOGIC: Check for past events and mark them completed
+    const now = new Date();
+    const updatesPromises: Promise<any>[] = [];
+
+    const mappedProjects = projects.map((p: any) => {
+        const proj: Project = {
+            id: p.id,
+            bandId: p.band_id,
+            title: p.title,
+            type: p.type as ProjectType,
+            status: p.status,
+            date: p.date,
+            startTime: p.start_time, 
+            location: p.location,
+            description: p.description,
+            createdAt: p.created_at,
+            tasks: [] // Will populate below
+        };
+
+        // Check if Event/Rehearsal is in the past and still IN_PROGRESS
+        if ((proj.type === 'EVENT' || proj.type === 'REHEARSAL') && proj.status === 'IN_PROGRESS' && proj.date) {
+            const eventDate = new Date(proj.date);
+            // If time exists, set it, otherwise assume end of day (so we don't archive too early)
+            if (proj.startTime) {
+                const [h, m] = proj.startTime.split(':');
+                eventDate.setHours(Number(h), Number(m));
+            } else {
+                eventDate.setHours(23, 59, 59);
+            }
+
+            if (eventDate < now) {
+                // It's in the past, mark as completed locally
+                proj.status = 'COMPLETED';
+                // Trigger background update
+                updatesPromises.push(
+                    supabase.from('projects').update({ status: 'COMPLETED' }).eq('id', proj.id)
+                );
+            }
+        }
+        return proj;
+    });
+
+    // Fire and forget update requests (don't block the UI)
+    if (updatesPromises.length > 0) {
+        Promise.all(updatesPromises).catch(err => console.warn("Background archive failed", err));
+    }
+
     // Fetch Tasks for these projects
     const { data: tasks, error: taskError } = await supabase
       .from('tasks')
@@ -576,17 +623,8 @@ export const ProjectService = {
     if (taskError) throw new Error(taskError.message);
 
     // Map Tasks to Projects
-    return projects.map((p: any) => ({
-      id: p.id,
-      bandId: p.band_id,
-      title: p.title,
-      type: p.type as ProjectType,
-      status: p.status,
-      date: p.date,
-      startTime: p.start_time, // Map separate time column
-      location: p.location,
-      description: p.description,
-      createdAt: p.created_at,
+    return mappedProjects.map((p) => ({
+      ...p,
       tasks: (tasks || [])
         .filter((t: any) => t.project_id === p.id)
         .map((t: any) => ({

@@ -1,8 +1,11 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../App';
-import { Music, ChevronDown, ShoppingBag, AlertCircle, Sparkles, X } from 'lucide-react';
+import { Music, ChevronDown, ShoppingBag, AlertCircle, Sparkles, X, Calendar, Mic, Clock, MapPin, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { generateSalesAnalysis } from '../services/geminiService';
+import { ProjectService } from '../services/storage';
+import { Project } from '../types';
 
 export default function DashboardPage() {
   const { currentBand, userBands, switchBand, showLowStockAlerts } = useApp();
@@ -13,6 +16,22 @@ export default function DashboardPage() {
   // AI State
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Projects State
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    const loadProjects = async () => {
+        if (!currentBand) return;
+        try {
+            const data = await ProjectService.getProjects(currentBand.id);
+            setProjects(data);
+        } catch (e) {
+            console.error("Failed to load dashboard projects", e);
+        }
+    };
+    loadProjects();
+  }, [currentBand]);
 
   // Low Stock Items (Grouped by Product)
   const lowStockItems = useMemo(() => {
@@ -37,6 +56,29 @@ export default function DashboardPage() {
       
       return items;
   }, [currentBand]);
+
+  const upcomingEvents = useMemo(() => {
+      return projects
+        .filter(p => (p.type === 'EVENT' || p.type === 'REHEARSAL') && p.status === 'IN_PROGRESS')
+        .sort((a, b) => {
+            const dateA = a.date ? new Date(a.date).getTime() : Infinity;
+            const dateB = b.date ? new Date(b.date).getTime() : Infinity;
+            return dateA - dateB;
+        })
+        .slice(0, 3);
+  }, [projects]);
+
+  const activeSongs = useMemo(() => {
+      return projects
+        .filter(p => p.type === 'SONG' && p.status === 'IN_PROGRESS')
+        .slice(0, 3);
+  }, [projects]);
+
+  const calculateProgress = (tasks: any[]) => {
+      if (!tasks || tasks.length === 0) return 0;
+      const completed = tasks.filter(t => t.isCompleted).length;
+      return Math.round((completed / tasks.length) * 100);
+  };
 
   const handleGenerateAnalysis = async () => {
       if (!currentBand || isAnalyzing) return;
@@ -127,11 +169,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content Wrapper with Padding */}
-      <div className="px-5 md:px-10">
+      <div className="px-5 md:px-10 space-y-6">
 
         {/* AI ANALYTICS BLOCK */}
         {currentBand.sales.length > 0 && (
-            <div className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 rounded-3xl p-5 relative overflow-hidden mb-8">
+            <div className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 rounded-3xl p-5 relative overflow-hidden">
                 <div className="flex items-center justify-between mb-3 relative z-10">
                     <div className="flex items-center gap-2">
                         <Sparkles size={20} className="text-indigo-400" />
@@ -172,7 +214,7 @@ export default function DashboardPage() {
 
         {/* LOW STOCK ALERT */}
         {/* Only show if enabled in settings and not dismissed */}
-        {showLowStockAlerts && !isAlertDismissed && lowStockItems.length > 0 ? (
+        {showLowStockAlerts && !isAlertDismissed && lowStockItems.length > 0 && (
             <div className="bg-orange-500/10 border border-orange-500/20 rounded-3xl p-4 flex flex-col gap-3 relative animate-fade-in">
                 <button 
                     onClick={() => setIsAlertDismissed(true)}
@@ -202,15 +244,98 @@ export default function DashboardPage() {
                     Перейти на склад
                 </button>
             </div>
-        ) : (
-          !showLowStockAlerts ? null : (
-              <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-4 flex items-center gap-3 text-zinc-500">
-                   <div className="p-2 bg-green-500/10 rounded-full text-green-500">
-                      <ShoppingBag size={16} />
-                   </div>
-                   <span className="text-sm">Товаров на складе достаточно</span>
-              </div>
-          )
+        )}
+
+        {/* UPCOMING EVENTS */}
+        {upcomingEvents.length > 0 && (
+            <div className="space-y-3">
+                 <div className="flex items-center justify-between px-2">
+                     <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Ближайшие мероприятия</h3>
+                     <button 
+                        onClick={() => navigate('/projects')}
+                        className="text-primary text-xs font-bold flex items-center gap-1"
+                     >
+                         Все <ArrowRight size={12} />
+                     </button>
+                 </div>
+                 
+                 <div className="space-y-2">
+                     {upcomingEvents.map(event => (
+                         <button 
+                            key={event.id}
+                            onClick={() => navigate('/projects?id=' + event.id)}
+                            className="w-full bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between hover:bg-zinc-800 transition-colors"
+                         >
+                             <div className="flex items-center gap-4">
+                                 <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 ${
+                                     event.type === 'EVENT' ? 'bg-orange-500/10 text-orange-500' : 'bg-green-500/10 text-green-500'
+                                 }`}>
+                                     <span className="text-sm font-bold">{event.date ? new Date(event.date).getDate() : '—'}</span>
+                                     <span className="text-[10px] font-bold uppercase">{event.date ? new Date(event.date).toLocaleString('ru', {month: 'short'}) : ''}</span>
+                                 </div>
+                                 <div className="text-left min-w-0">
+                                     <div className="font-bold text-white truncate">{event.title}</div>
+                                     <div className="flex items-center gap-3 text-xs text-zinc-500 mt-0.5">
+                                         {event.startTime && (
+                                             <div className="flex items-center gap-1">
+                                                 <Clock size={10} /> {event.startTime}
+                                             </div>
+                                         )}
+                                         {event.location && (
+                                             <div className="flex items-center gap-1 truncate">
+                                                 <MapPin size={10} /> {event.location}
+                                             </div>
+                                         )}
+                                     </div>
+                                 </div>
+                             </div>
+                             {event.type === 'EVENT' ? <Calendar size={16} className="text-zinc-600" /> : <Mic size={16} className="text-zinc-600" />}
+                         </button>
+                     ))}
+                 </div>
+            </div>
+        )}
+
+        {/* SONG PROGRESS */}
+        {activeSongs.length > 0 && (
+            <div className="space-y-3">
+                 <div className="flex items-center justify-between px-2">
+                     <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Работа над песнями</h3>
+                     <button 
+                        onClick={() => navigate('/projects')}
+                        className="text-primary text-xs font-bold flex items-center gap-1"
+                     >
+                         Все <ArrowRight size={12} />
+                     </button>
+                 </div>
+                 
+                 <div className="space-y-2">
+                     {activeSongs.map(song => {
+                         const progress = calculateProgress(song.tasks);
+                         return (
+                            <button 
+                                key={song.id}
+                                onClick={() => navigate('/projects?id=' + song.id)}
+                                className="w-full bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl hover:bg-zinc-800 transition-colors"
+                            >
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="font-bold text-white text-sm flex items-center gap-2">
+                                        <Music size={14} className="text-indigo-400" />
+                                        {song.title}
+                                    </div>
+                                    <span className="text-xs font-bold text-zinc-500">{progress}%</span>
+                                </div>
+                                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full" 
+                                        style={{ width: `${progress}%` }}
+                                    ></div>
+                                </div>
+                            </button>
+                         );
+                     })}
+                 </div>
+            </div>
         )}
       
       </div>

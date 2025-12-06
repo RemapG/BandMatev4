@@ -2,14 +2,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
-import { UserRole, BandMember, Sale, SaleItem } from '../types';
-import { BandService, ImageService } from '../services/storage';
-import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone, Trash2, AlertTriangle, ZoomIn, DollarSign, TrendingUp, ShoppingBag, Edit2, Minus, Plus, AlertCircle, ArrowLeft, Users, PieChart, History, Info, CreditCard, Shirt, Package, FileText, Wallet, Mic2 } from 'lucide-react';
+import { UserRole, BandMember, Sale, SaleItem, Project } from '../types';
+import { BandService, ImageService, ProjectService } from '../services/storage';
+import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone, Trash2, AlertTriangle, ZoomIn, DollarSign, TrendingUp, ShoppingBag, Edit2, Minus, Plus, AlertCircle, ArrowLeft, Users, PieChart, History, Info, CreditCard, Shirt, Package, FileText, Wallet, Mic2, Archive, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
 
-type SettingsView = 'main' | 'general' | 'payments' | 'team' | 'stats' | 'history';
+type SettingsView = 'main' | 'general' | 'payments' | 'team' | 'stats' | 'history' | 'archive';
 
 export default function BandSettingsPage() {
   const { currentBand, user, refreshData } = useApp();
@@ -31,6 +31,10 @@ export default function BandSettingsPage() {
   const [showPhone, setShowPhone] = useState(true);
 
   const [loading, setLoading] = useState(false);
+
+  // Archive State
+  const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
+  const [loadingArchive, setLoadingArchive] = useState(false);
 
   // Sale Edit State
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
@@ -57,6 +61,24 @@ export default function BandSettingsPage() {
         setShowPhone(currentBand.showPaymentPhone ?? true);
     }
   }, [currentBand]);
+
+  // Load archive when view changes
+  useEffect(() => {
+      if (currentView === 'archive' && currentBand) {
+          const loadArchive = async () => {
+              setLoadingArchive(true);
+              try {
+                  const projects = await ProjectService.getProjects(currentBand.id);
+                  setArchivedProjects(projects.filter(p => p.status === 'COMPLETED'));
+              } catch (e) {
+                  console.error(e);
+              } finally {
+                  setLoadingArchive(false);
+              }
+          };
+          loadArchive();
+      }
+  }, [currentView, currentBand]);
 
   // Cleanup object URLs
   useEffect(() => {
@@ -407,6 +429,23 @@ export default function BandSettingsPage() {
                             </div>
                             <ChevronRight size={18} className="text-zinc-600" />
                         </button>
+
+                        {/* ARCHIVE LINK */}
+                        <button 
+                            onClick={() => setCurrentView('archive')}
+                            className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/50 transition-colors"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="h-10 w-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400">
+                                    <Archive size={20} />
+                                </div>
+                                <div className="text-left">
+                                    <div className="text-white font-bold">Архив</div>
+                                    <div className="text-xs text-zinc-500">Прошедшие мероприятия</div>
+                                </div>
+                            </div>
+                            <ChevronRight size={18} className="text-zinc-600" />
+                        </button>
                     </>
                 )}
             </div>
@@ -681,6 +720,68 @@ export default function BandSettingsPage() {
     </div>
   );
 
+  const renderArchiveView = () => (
+    <div className="space-y-4 animate-slide-up pb-24 h-full flex flex-col">
+         <div className="flex items-center gap-2 mb-2">
+              <button 
+                onClick={() => setCurrentView('main')}
+                className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-900 transition-colors"
+              >
+                  <ArrowLeft size={24} />
+              </button>
+              <h2 className="text-2xl font-black text-white tracking-tighter uppercase italic">Архив</h2>
+          </div>
+
+        {loadingArchive ? (
+             <div className="flex-1 flex items-center justify-center">
+                 <div className="animate-spin h-8 w-8 border-2 border-zinc-500 border-t-transparent rounded-full"></div>
+             </div>
+        ) : archivedProjects.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 border border-zinc-800 border-dashed rounded-3xl bg-zinc-900/30 text-zinc-500">
+                <Archive size={48} className="mb-4 opacity-50" />
+                <p className="text-sm">Архив пуст</p>
+            </div>
+        ) : (
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-1">
+                {archivedProjects.map(project => {
+                    let icon = <Music size={20} />;
+                    let typeLabel = 'Песня';
+                    
+                    if (project.type === 'EVENT') {
+                        icon = <Calendar size={20} />;
+                        typeLabel = 'Концерт';
+                    } else if (project.type === 'REHEARSAL') {
+                        icon = <Mic2 size={20} />;
+                        typeLabel = 'Репетиция';
+                    }
+
+                    return (
+                        <div key={project.id} className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between">
+                            <div className="flex items-center gap-4 overflow-hidden">
+                                <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-500 shrink-0">
+                                    {icon}
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-white font-bold truncate">{project.title}</div>
+                                    <div className="text-xs text-zinc-500 flex items-center gap-2">
+                                        <span>{typeLabel}</span>
+                                        {project.date && (
+                                            <>
+                                                <span className="w-1 h-1 bg-zinc-700 rounded-full"></span>
+                                                <span>{new Date(project.date).toLocaleDateString()}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        )}
+    </div>
+  );
+
   const renderTeamView = () => (
       <div className="space-y-4 animate-slide-up pb-24">
            <div className="flex items-center gap-2 mb-2">
@@ -777,6 +878,7 @@ export default function BandSettingsPage() {
        {currentView === 'team' && renderTeamView()}
        {currentView === 'stats' && renderStatsView()}
        {currentView === 'history' && renderHistoryView()}
+       {currentView === 'archive' && renderArchiveView()}
 
        {/* EDIT SALE MODAL (Admin/Manager Only) */}
        {editingSale && createPortal(
