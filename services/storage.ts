@@ -171,6 +171,49 @@ export const BandService = {
     return bands;
   },
 
+  // NEW METHOD: Get Public Profile + Bands
+  getUserProfileWithBands: async (userId: string): Promise<{ user: User, bands: {id: string, name: string, imageUrl?: string, role: UserRole}[] } | null> => {
+     if (USE_MOCK) return MockBand.getUserProfileWithBands(userId);
+
+     // 1. Get Profile
+     const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+    
+     if (profileError || !profile) return null;
+
+     const userObj: User = {
+         id: profile.id,
+         name: profile.name,
+         email: profile.email || '', // Email might be hidden depending on RLS, but strictly we might not need it for public view
+         avatarUrl: profile.avatar_url,
+         description: profile.description,
+         bandIds: []
+     };
+
+     // 2. Get Bands
+     const { data: members, error: bandsError } = await supabase
+        .from('band_members')
+        .select(`
+            role,
+            bands (
+                id, name, image_url
+            )
+        `)
+        .eq('user_id', userId);
+    
+     const bands = (members || []).map((m: any) => ({
+         id: m.bands.id,
+         name: m.bands.name,
+         imageUrl: m.bands.image_url,
+         role: m.role
+     }));
+
+     return { user: userObj, bands };
+  },
+
   getBand: async (bandId: string): Promise<Band | undefined> => {
     if (USE_MOCK) return MockBand.getBand(bandId);
 
@@ -578,6 +621,23 @@ const MockBand = {
         if (!user.bandIds || user.bandIds.length === 0) return [];
         const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
         return bands.filter(b => user.bandIds.includes(b.id));
+    },
+    getUserProfileWithBands: async (userId: string): Promise<{ user: User, bands: {id: string, name: string, imageUrl?: string, role: UserRole}[] } | null> => {
+        const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS_DB) || '[]');
+        const targetUser = users.find(u => u.id === userId);
+        if (!targetUser) return null;
+        
+        const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
+        const userBandsData = bands
+            .filter(b => b.members.some(m => m.id === userId))
+            .map(b => ({
+                id: b.id,
+                name: b.name,
+                imageUrl: b.imageUrl,
+                role: b.members.find(m => m.id === userId)?.role || UserRole.MEMBER
+            }));
+            
+        return { user: targetUser, bands: userBandsData };
     },
     createBand: async (name: string, user: User, imageUrl?: string): Promise<Band> => {
         await new Promise(r => setTimeout(r, 500));

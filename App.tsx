@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, createContext, useContext, useRef, useLayoutEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { User, Band, BandMember, UserRole } from './types';
@@ -14,6 +15,7 @@ import InventoryPage from './pages/InventoryPage';
 import BandSettingsPage from './pages/BandSettingsPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
+import UserProfilePage from './pages/UserProfilePage';
 
 // --- Context ---
 interface AppContextType {
@@ -377,6 +379,10 @@ export default function App() {
           
           <Route path="/profile-settings" element={
             user ? <AppLayout><ProfileSettingsPage /></AppLayout> : <Navigate to="/" />
+          } />
+
+          <Route path="/profile/:userId" element={
+            user ? <AppLayout><UserProfilePage /></AppLayout> : <Navigate to="/" />
           } />
 
           {/* Catch-all route to prevent 'No routes matched' errors in preview environments */}

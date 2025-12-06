@@ -1,14 +1,16 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { AuthService, ImageService } from '../services/storage';
-import { ChevronLeft, Upload, Save, User as UserIcon, X, Check, ZoomIn, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Upload, Save, User as UserIcon, X, Check, ZoomIn, AlertCircle, Shield, Briefcase, Music } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
+import { UserRole } from '../types';
 
 export default function ProfileSettingsPage() {
-  const { user, refreshData } = useApp();
+  const { user, refreshData, userBands } = useApp();
   const navigate = useNavigate();
   
   const [name, setName] = useState('');
@@ -122,6 +124,23 @@ export default function ProfileSettingsPage() {
     }
   };
 
+  const getRoleLabel = (role: UserRole) => {
+    switch (role) {
+        case UserRole.ADMIN: return 'Админ';
+        case UserRole.MODERATOR: return 'Менеджер';
+        case UserRole.MEMBER: return 'Участник';
+        default: return role;
+    }
+  };
+
+  const getRoleColor = (role: UserRole) => {
+      switch(role) {
+          case UserRole.ADMIN: return 'text-primary bg-primary/10 border-primary/20';
+          case UserRole.MODERATOR: return 'text-purple-400 bg-purple-500/10 border-purple-500/20';
+          default: return 'text-zinc-500 bg-zinc-800 border-zinc-700';
+      }
+  };
+
   if (!user) return null;
 
   return (
@@ -192,6 +211,44 @@ export default function ProfileSettingsPage() {
                  </>
              )}
            </button>
+      </div>
+
+      {/* User Groups List */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">
+          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1">Мои Группы</h3>
+          
+          {userBands.length === 0 ? (
+              <div className="text-center py-4 text-zinc-500 text-sm">
+                  Вы пока не состоите ни в одной группе
+              </div>
+          ) : (
+              <div className="space-y-3">
+                  {userBands.map(band => {
+                      const member = band.members.find(m => m.id === user.id);
+                      const role = member?.role || UserRole.MEMBER;
+                      
+                      return (
+                          <div key={band.id} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl border border-zinc-800">
+                               <div className="flex items-center gap-4">
+                                   <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center overflow-hidden border border-zinc-700">
+                                       {band.imageUrl ? (
+                                           <img src={band.imageUrl} alt="" className="w-full h-full object-cover" />
+                                       ) : (
+                                           <Music size={16} className="text-zinc-600" />
+                                       )}
+                                   </div>
+                                   <span className="text-white font-bold text-sm">{band.name}</span>
+                               </div>
+                               <div className={`px-2 py-1 rounded-md border text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${getRoleColor(role)}`}>
+                                   {role === UserRole.ADMIN && <Shield size={10} />}
+                                   {role === UserRole.MODERATOR && <Briefcase size={10} />}
+                                   {getRoleLabel(role)}
+                               </div>
+                          </div>
+                      );
+                  })}
+              </div>
+          )}
       </div>
 
       {/* CROPPER MODAL */}

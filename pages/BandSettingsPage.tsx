@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
@@ -30,10 +31,6 @@ export default function BandSettingsPage() {
   const [showPhone, setShowPhone] = useState(true);
 
   const [loading, setLoading] = useState(false);
-
-  // Team State
-  const [editingMember, setEditingMember] = useState<BandMember | null>(null);
-  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   // Sale Edit State
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
@@ -180,38 +177,9 @@ export default function BandSettingsPage() {
     await BandService.approveRequest(currentBand.id, requesterId);
     refreshData();
   };
-  
-  const handleRoleChange = async (role: UserRole) => {
-    if (!editingMember) return;
-    try {
-        await BandService.updateMemberRole(currentBand.id, editingMember.id, role);
-        await refreshData();
-        setEditingMember(null);
-    } catch (e) {
-        console.error("Failed to update role", e);
-        alert("Ошибка при обновлении роли");
-    }
-  };
 
-  const handleRemoveMember = async () => {
-    if (!editingMember) return;
-    setLoading(true);
-    try {
-        await BandService.removeMember(currentBand.id, editingMember.id);
-        await refreshData();
-        setEditingMember(null);
-        setShowRemoveConfirm(false);
-    } catch (e) {
-        console.error(e);
-        alert('Ошибка при удалении участника');
-    } finally {
-        setLoading(false);
-    }
-  };
-
-  const openMemberEdit = (member: BandMember) => {
-      setEditingMember(member);
-      setShowRemoveConfirm(false);
+  const openMemberProfile = (memberId: string) => {
+      navigate(`/profile/${memberId}`);
   };
 
   // --- SALE EDIT HANDLERS ---
@@ -627,9 +595,8 @@ export default function BandSettingsPage() {
             {currentBand.members.map(member => (
               <button 
                 key={member.id} 
-                onClick={() => isAdmin && openMemberEdit(member)}
-                disabled={!isAdmin}
-                className={`w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between transition-all text-left group ${isAdmin ? 'hover:bg-zinc-800 hover:border-zinc-700 active:scale-[0.99]' : ''}`}
+                onClick={() => openMemberProfile(member.id)} // CHANGED: Navigate to profile
+                className={`w-full bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between transition-all text-left hover:bg-zinc-800 active:scale-[0.99]`}
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center border overflow-hidden shrink-0 ${
@@ -659,7 +626,7 @@ export default function BandSettingsPage() {
                     }`}>
                     {getRoleLabel(member.role)}
                     </span>
-                    {isAdmin && <ChevronRight size={16} className="text-zinc-700 group-hover:text-zinc-500" />}
+                    <ChevronRight size={16} className="text-zinc-700" />
                 </div>
               </button>
             ))}
@@ -705,133 +672,8 @@ export default function BandSettingsPage() {
        {currentView === 'stats' && renderStatsView()}
        {currentView === 'history' && renderHistoryView()}
 
-       {/* MODALS RENDERED GLOBALLY */}
-       
-       {/* Role Editor Modal */}
-       {editingMember && createPortal(
-          <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
-              <div className="bg-zinc-900 border border-zinc-800 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 pb-12 sm:pb-6 shadow-2xl relative animate-slide-up">
-                  <button 
-                    onClick={() => setEditingMember(null)}
-                    className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2"
-                  >
-                      <X size={24} />
-                  </button>
-                  
-                  <div className="mb-6">
-                      <div className="text-xs text-zinc-500 font-bold uppercase tracking-widest mb-1">Настройка доступа</div>
-                      <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                          {editingMember.avatarUrl && (
-                              <img src={editingMember.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-zinc-700" alt="" />
-                          )}
-                          {editingMember.name}
-                      </h3>
-                      {editingMember.description && (
-                          <div className="mt-2 text-sm text-zinc-400 bg-zinc-800/50 p-3 rounded-xl border border-zinc-800 italic">
-                              "{editingMember.description}"
-                          </div>
-                      )}
-                  </div>
-
-                  <div className="space-y-2">
-                      <button
-                        onClick={() => handleRoleChange(UserRole.MEMBER)}
-                        className={`w-full p-4 rounded-xl border flex items-center gap-4 transition-all ${
-                            editingMember.role === UserRole.MEMBER
-                            ? 'bg-zinc-800 border-zinc-600 ring-1 ring-zinc-500'
-                            : 'bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800'
-                        }`}
-                      >
-                          <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400">
-                              <User size={20} />
-                          </div>
-                          <div className="text-left">
-                              <div className="text-white font-bold">Продажник</div>
-                              <div className="text-xs text-zinc-500">Может только продавать (Касса)</div>
-                          </div>
-                          {editingMember.role === UserRole.MEMBER && <Check className="ml-auto text-zinc-400" size={20} />}
-                      </button>
-
-                      <button
-                        onClick={() => handleRoleChange(UserRole.MODERATOR)}
-                        className={`w-full p-4 rounded-xl border flex items-center gap-4 transition-all ${
-                            editingMember.role === UserRole.MODERATOR
-                            ? 'bg-purple-900/20 border-purple-500/50 ring-1 ring-purple-500'
-                            : 'bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800'
-                        }`}
-                      >
-                          <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400">
-                              <Briefcase size={20} />
-                          </div>
-                          <div className="text-left">
-                              <div className="text-white font-bold">Менеджер</div>
-                              <div className="text-xs text-zinc-500">Продажи + Редактирование склада</div>
-                          </div>
-                           {editingMember.role === UserRole.MODERATOR && <Check className="ml-auto text-purple-500" size={20} />}
-                      </button>
-
-                      <button
-                        onClick={() => handleRoleChange(UserRole.ADMIN)}
-                        className={`w-full p-4 rounded-xl border flex items-center gap-4 transition-all ${
-                            editingMember.role === UserRole.ADMIN
-                            ? 'bg-primary/10 border-primary/50 ring-1 ring-primary'
-                            : 'bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800'
-                        }`}
-                      >
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                              <Shield size={20} />
-                          </div>
-                          <div className="text-left">
-                              <div className="text-white font-bold">Администратор</div>
-                              <div className="text-xs text-zinc-500">Полный доступ + Управление командой</div>
-                          </div>
-                           {editingMember.role === UserRole.ADMIN && <Check className="ml-auto text-primary" size={20} />}
-                      </button>
-                  </div>
-                  
-                  {/* Remove User Section */}
-                  {editingMember.id !== user.id && (
-                      <div className="mt-8 border-t border-zinc-800 pt-6">
-                           {!showRemoveConfirm ? (
-                               <button 
-                                onClick={() => setShowRemoveConfirm(true)}
-                                className="w-full text-center text-red-500 font-bold text-xs uppercase tracking-widest hover:text-red-400 transition-colors flex items-center justify-center gap-2 p-2 rounded-lg hover:bg-red-500/10"
-                               >
-                                   <Trash2 size={16} />
-                                   Исключить из группы
-                               </button>
-                           ) : (
-                               <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 animate-fade-in">
-                                  <div className="flex items-center justify-center gap-2 text-red-400 mb-4">
-                                      <AlertTriangle size={18} />
-                                      <span className="text-sm font-bold">Вы уверены?</span>
-                                  </div>
-                                  <div className="flex gap-3">
-                                      <button 
-                                        onClick={() => setShowRemoveConfirm(false)}
-                                        className="flex-1 py-3 bg-zinc-900 text-zinc-400 font-bold text-xs uppercase rounded-lg hover:bg-zinc-800 hover:text-white transition-colors"
-                                      >
-                                          Отмена
-                                      </button>
-                                      <button 
-                                        onClick={handleRemoveMember}
-                                        disabled={loading}
-                                        className="flex-1 py-3 bg-red-600 text-white font-bold text-xs uppercase rounded-lg hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
-                                      >
-                                          {loading ? 'Удаление...' : 'Исключить'}
-                                      </button>
-                                  </div>
-                               </div>
-                           )}
-                      </div>
-                  )}
-              </div>
-          </div>,
-          document.body
-      )}
-
-      {/* EDIT SALE MODAL (Admin/Manager Only) */}
-      {editingSale && createPortal(
+       {/* EDIT SALE MODAL (Admin/Manager Only) */}
+       {editingSale && createPortal(
           <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
               <div className="bg-zinc-950 border border-zinc-800 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 pb-12 sm:pb-6 shadow-2xl relative animate-slide-up max-h-[90vh] flex flex-col">
                   <button 
