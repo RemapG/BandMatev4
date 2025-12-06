@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
@@ -126,7 +125,8 @@ export default function ProfileSettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
+    // Updated padding: p-5 on mobile, md:p-10 on desktop
+    <div className="space-y-6 animate-fade-in pb-20 p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] md:p-10">
       <div className="flex items-center gap-2">
            <button 
              onClick={() => navigate('/settings')}

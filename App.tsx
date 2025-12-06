@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, createContext, useContext, useRef, useLayoutEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { User, Band, BandMember, UserRole } from './types';
@@ -178,17 +177,19 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       </div>
 
       {/* Main Content Area */}
-      {/* Added pt-safe to respect Top Notch area */}
-      <main className="flex-1 flex flex-col h-full bg-black relative overflow-hidden pt-safe overscroll-none">
+      {/* Removed pt-safe from here to allow full bleed images on specific pages */}
+      <main className="flex-1 flex flex-col h-full bg-black relative overflow-hidden overscroll-none">
         {/* Mobile Page Content - No Top Header */}
         {/* 'overscroll-contain' and 'overflow-y-auto' allows scrolling INSIDE but not bouncing the whole page */}
         {/* 'touch-auto' allows scrolling, parent has 'touch-none' to prevent bounce elsewhere */}
         {/* Attach ref={scrollRef} here to track scrolling */}
         <div 
             ref={scrollRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pb-24 md:pb-0 md:p-10 overscroll-none touch-auto no-scrollbar"
+            className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth pb-24 md:pb-0 overscroll-none touch-auto no-scrollbar"
         >
-          <div className="max-w-7xl mx-auto min-h-full p-5 md:p-0">
+          {/* Removed default padding (p-5 pt-safe). Pages now control their own padding to allow full-bleed layouts. */}
+          {/* Removed md:p-10 to fix black strip issue on desktop */}
+          <div className="max-w-7xl mx-auto min-h-full">
              {children}
           </div>
         </div>

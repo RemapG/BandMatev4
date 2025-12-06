@@ -52,9 +52,11 @@ export interface Sale {
 export interface Band {
   id: string;
   name: string;
+  description?: string; // New field
   imageUrl?: string;
   paymentQrUrl?: string; // New field for Payment QR Code
   paymentPhoneNumber?: string; // New field for Payment Phone Number
+  paymentRecipientName?: string; // New field for Payment Recipient Name
   showPaymentQr?: boolean; // New toggle
   showPaymentPhone?: boolean; // New toggle
   joinCode: string;

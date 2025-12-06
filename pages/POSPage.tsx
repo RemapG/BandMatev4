@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
@@ -132,7 +131,8 @@ export default function POSPage() {
   // --- Renders ---
 
   return (
-    <div className="h-full relative pb-24 md:pb-0">
+    // Updated padding: p-5 on mobile, md:p-10 on desktop
+    <div className="h-full relative pb-24 md:pb-0 p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] md:p-10">
       <header className="mb-6 flex items-center justify-between">
             <h2 className="text-3xl font-black text-white tracking-tighter italic uppercase">Касса</h2>
             <div className="text-zinc-500 text-sm font-medium">{currentBand.inventory.length} позиций</div>
@@ -344,6 +344,13 @@ export default function POSPage() {
                               <span className="text-xl font-mono font-bold text-white">{currentBand.paymentPhoneNumber}</span>
                               <Copy size={16} className="text-zinc-600 group-hover:text-white" />
                           </button>
+                          
+                          {/* RECIPIENT NAME */}
+                          {currentBand.paymentRecipientName && (
+                              <div className="mt-3 text-sm text-zinc-400 font-medium">
+                                  Получатель: <span className="text-white">{currentBand.paymentRecipientName}</span>
+                              </div>
+                          )}
                       </div>
                   )}
 

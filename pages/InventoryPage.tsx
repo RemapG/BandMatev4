@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../App';
@@ -208,7 +207,8 @@ export default function InventoryPage() {
   }, [currentBand.inventory, searchTerm]);
 
   return (
-    <div className="space-y-6 h-full flex flex-col pb-24">
+    // Updated padding: p-5 on mobile, md:p-10 on desktop
+    <div className="space-y-6 h-full flex flex-col pb-24 p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] md:p-10">
       {/* Header */}
       <div className="flex items-center justify-between pt-4">
         <div>
@@ -292,7 +292,7 @@ export default function InventoryPage() {
           )}
       </div>
 
-      {/* Edit Modal */}
+      {/* Edit Modal (Portal) - Code omitted for brevity, logic remains same */}
       {isEditing && createPortal(
           <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
               <div className="bg-zinc-950 border border-zinc-800 w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-6 pb-12 sm:pb-6 shadow-2xl relative animate-slide-up flex flex-col max-h-[95vh]">

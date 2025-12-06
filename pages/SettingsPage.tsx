@@ -1,17 +1,17 @@
-
 import React from 'react';
 import { useApp } from '../App';
-import { User, LogOut, ChevronRight, Settings2, Music, User as UserIcon } from 'lucide-react';
+import { LogOut, ChevronRight, Settings2, Music, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function SettingsPage() {
-  const { user, logout } = useApp();
+  const { user, logout, currentBand } = useApp();
   const navigate = useNavigate();
 
   if (!user) return null;
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20 h-full">
+    // Updated padding: p-5 on mobile, md:p-10 on desktop
+    <div className="space-y-6 animate-fade-in pb-20 h-full p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] md:p-10">
       <h2 className="text-3xl font-black text-white tracking-tighter italic uppercase mb-6">Меню</h2>
 
       {/* Profile Card */}
@@ -40,22 +40,7 @@ export default function SettingsPage() {
         <h4 className="text-xs text-zinc-500 font-bold uppercase tracking-widest px-2">Управление Группой</h4>
         
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden divide-y divide-zinc-800">
-            {/* Updated Link to Band Settings */}
-            <button 
-                onClick={() => navigate('/band-settings')}
-                className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/50 transition-colors"
-            >
-                <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                        <Settings2 size={20} />
-                    </div>
-                    <div className="text-left">
-                        <div className="text-white font-bold">Настройки Группы</div>
-                        <div className="text-xs text-zinc-500">Команда, QR-код, Инфо</div>
-                    </div>
-                </div>
-                <ChevronRight size={18} className="text-zinc-600" />
-            </button>
+            {/* REMOVED LINK TO BAND SETTINGS AS REQUESTED */}
             
              <button 
                 onClick={() => navigate('/onboarding')}
@@ -96,7 +81,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="text-center pt-8 text-zinc-600 text-xs">
-         BandMate v1.1.0 Mobile
+         BandMate v1.2.0 Mobile
       </div>
     </div>
   );

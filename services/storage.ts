@@ -151,7 +151,7 @@ export const BandService = {
         .select(`
             role,
             bands (
-                id, name, image_url, join_code, payment_qr_url, payment_phone_number, show_payment_qr, show_payment_phone
+                id, name, description, image_url, join_code, payment_qr_url, payment_phone_number, payment_recipient_name, show_payment_qr, show_payment_phone
             )
         `)
         .eq('user_id', user.id);
@@ -228,9 +228,11 @@ export const BandService = {
     return {
         id: bandData.id,
         name: bandData.name,
+        description: bandData.description,
         imageUrl: bandData.image_url,
         paymentQrUrl: (bandData as any).payment_qr_url,
         paymentPhoneNumber: (bandData as any).payment_phone_number,
+        paymentRecipientName: (bandData as any).payment_recipient_name,
         showPaymentQr: (bandData as any).show_payment_qr ?? true,
         showPaymentPhone: (bandData as any).show_payment_phone ?? true,
         joinCode: bandData.join_code,
@@ -273,14 +275,16 @@ export const BandService = {
     return fullBand;
   },
   
-  updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string, showPaymentQr?: boolean, showPaymentPhone?: boolean): Promise<void> => {
-    if (USE_MOCK) return MockBand.updateBandDetails(bandId, name, imageUrl, paymentQrUrl, paymentPhoneNumber, showPaymentQr, showPaymentPhone);
+  updateBandDetails: async (bandId: string, name: string, description?: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string, paymentRecipientName?: string, showPaymentQr?: boolean, showPaymentPhone?: boolean): Promise<void> => {
+    if (USE_MOCK) return MockBand.updateBandDetails(bandId, name, description, imageUrl, paymentQrUrl, paymentPhoneNumber, paymentRecipientName, showPaymentQr, showPaymentPhone);
     
     const updatePayload: any = { 
-        name, 
+        name,
+        description,
         image_url: imageUrl,
         payment_qr_url: paymentQrUrl,
         payment_phone_number: paymentPhoneNumber,
+        payment_recipient_name: paymentRecipientName,
         show_payment_qr: showPaymentQr,
         show_payment_phone: showPaymentPhone
     };
@@ -513,7 +517,7 @@ export const BandService = {
 };
 
 
-// --- LEGACY MOCK IMPLEMENTATION (UNCHANGED) ---
+// --- LEGACY MOCK IMPLEMENTATION ---
 const STORAGE_KEYS = {
   USER: 'bandmate_user_v3',
   USERS_DB: 'bandmate_users_db_v3',
@@ -595,14 +599,16 @@ const MockBand = {
         }
         return newBand;
     },
-    updateBandDetails: async (bandId: string, name: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string, showPaymentQr?: boolean, showPaymentPhone?: boolean): Promise<void> => {
+    updateBandDetails: async (bandId: string, name: string, description?: string, imageUrl?: string, paymentQrUrl?: string, paymentPhoneNumber?: string, paymentRecipientName?: string, showPaymentQr?: boolean, showPaymentPhone?: boolean): Promise<void> => {
         const bands: Band[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BANDS) || '[]');
         const idx = bands.findIndex(b => b.id === bandId);
         if (idx !== -1) {
             bands[idx].name = name;
+            if (description !== undefined) bands[idx].description = description;
             if (imageUrl !== undefined) bands[idx].imageUrl = imageUrl;
             if (paymentQrUrl !== undefined) bands[idx].paymentQrUrl = paymentQrUrl;
             if (paymentPhoneNumber !== undefined) bands[idx].paymentPhoneNumber = paymentPhoneNumber;
+            if (paymentRecipientName !== undefined) bands[idx].paymentRecipientName = paymentRecipientName;
             if (showPaymentQr !== undefined) bands[idx].showPaymentQr = showPaymentQr;
             if (showPaymentPhone !== undefined) bands[idx].showPaymentPhone = showPaymentPhone;
             localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
