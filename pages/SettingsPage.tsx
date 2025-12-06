@@ -1,10 +1,10 @@
 import React from 'react';
 import { useApp } from '../App';
-import { LogOut, ChevronRight, Settings2, Music, User as UserIcon } from 'lucide-react';
+import { LogOut, ChevronRight, Settings2, Music, User as UserIcon, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function SettingsPage() {
-  const { user, logout, currentBand } = useApp();
+  const { user, logout, showLowStockAlerts, toggleLowStockAlerts } = useApp();
   const navigate = useNavigate();
 
   if (!user) return null;
@@ -40,8 +40,6 @@ export default function SettingsPage() {
         <h4 className="text-xs text-zinc-500 font-bold uppercase tracking-widest px-2">Управление Группой</h4>
         
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden divide-y divide-zinc-800">
-            {/* REMOVED LINK TO BAND SETTINGS AS REQUESTED */}
-            
              <button 
                 onClick={() => navigate('/onboarding')}
                 className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/50 transition-colors"
@@ -63,7 +61,27 @@ export default function SettingsPage() {
       {/* App Settings */}
       <div className="space-y-2">
         <h4 className="text-xs text-zinc-500 font-bold uppercase tracking-widest px-2">Приложение</h4>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden divide-y divide-zinc-800">
+             
+             {/* Low Stock Alert Toggle */}
+             <div className="w-full flex items-center justify-between p-5">
+                <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+                        <AlertCircle size={20} />
+                    </div>
+                    <div className="text-left">
+                        <div className="text-white font-bold">Заканчивающиеся товары</div>
+                        <div className="text-xs text-zinc-500">Показывать уведомление на главной</div>
+                    </div>
+                </div>
+                <button 
+                    onClick={toggleLowStockAlerts}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${showLowStockAlerts ? 'bg-primary' : 'bg-zinc-700'}`}
+                >
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${showLowStockAlerts ? 'left-7' : 'left-1'}`}></div>
+                </button>
+            </div>
+
              <button 
                 onClick={logout}
                 className="w-full flex items-center justify-between p-5 hover:bg-red-500/10 transition-colors group"

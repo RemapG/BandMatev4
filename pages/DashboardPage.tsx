@@ -1,30 +1,41 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../App';
-import { Music, ChevronDown, ShoppingBag, AlertCircle, Sparkles } from 'lucide-react';
+import { Music, ChevronDown, ShoppingBag, AlertCircle, Sparkles, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { generateSalesAnalysis } from '../services/geminiService';
 
 export default function DashboardPage() {
-  const { currentBand, userBands, switchBand } = useApp();
+  const { currentBand, userBands, switchBand, showLowStockAlerts } = useApp();
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
+  const [isAlertDismissed, setIsAlertDismissed] = useState(false);
   const navigate = useNavigate();
   
   // AI State
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Low Stock Items
+  // Low Stock Items (Grouped by Product)
   const lowStockItems = useMemo(() => {
       if (!currentBand) return [];
-      const low: { name: string; variant: string; stock: number }[] = [];
+      
+      const items: { id: string; name: string; details: string }[] = [];
+      
       currentBand.inventory.forEach(item => {
-          item.variants.forEach(v => {
-              if (v.stock < 5) {
-                  low.push({ name: item.name, variant: v.label, stock: v.stock });
-              }
-          });
+          // Find all variants of this item that are low stock
+          const lowVariants = item.variants.filter(v => v.stock < 5);
+          
+          if (lowVariants.length > 0) {
+              // Create a string description: "S: 2, M: 0"
+              const details = lowVariants.map(v => `${v.label}: ${v.stock}`).join(', ');
+              items.push({
+                  id: item.id,
+                  name: item.name,
+                  details: `(${details})`
+              });
+          }
       });
-      return low.slice(0, 3); // Show top 3
+      
+      return items;
   }, [currentBand]);
 
   const handleGenerateAnalysis = async () => {
@@ -48,12 +59,6 @@ export default function DashboardPage() {
     <div className="space-y-8 animate-fade-in pb-20 h-full">
       
       {/* HERO HEADER - BAND SWITCHER */}
-      {/* 
-          LAYOUT FIX:
-          - No negative margins used anymore because App.tsx wrapper has no padding.
-          - Hero image is full width by default.
-          - Top padding is added to content to account for status bar (Safe Area).
-      */}
       <div className="relative z-20 mb-8">
         <div className="absolute inset-0 overflow-hidden md:rounded-b-3xl">
             {/* Blurry Background Image */}
@@ -166,18 +171,30 @@ export default function DashboardPage() {
         )}
 
         {/* LOW STOCK ALERT */}
-        {lowStockItems.length > 0 ? (
-            <div className="bg-orange-500/10 border border-orange-500/20 rounded-3xl p-4 flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-orange-400 mb-1">
+        {/* Only show if enabled in settings and not dismissed */}
+        {showLowStockAlerts && !isAlertDismissed && lowStockItems.length > 0 ? (
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-3xl p-4 flex flex-col gap-3 relative animate-fade-in">
+                <button 
+                    onClick={() => setIsAlertDismissed(true)}
+                    className="absolute top-4 right-4 text-orange-400/50 hover:text-orange-400 transition-colors"
+                >
+                    <X size={18} />
+                </button>
+
+                <div className="flex items-center gap-2 text-orange-400">
                     <AlertCircle size={18} />
                     <span className="font-bold text-sm uppercase tracking-wide">Заканчиваются</span>
                 </div>
-                {lowStockItems.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-sm px-2">
-                        <span className="text-zinc-300">{item.name} <span className="text-zinc-500">({item.variant})</span></span>
-                        <span className="text-orange-400 font-mono font-bold">{item.stock} шт</span>
-                    </div>
-                ))}
+                
+                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+                    {lowStockItems.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center text-sm px-2 py-1 bg-orange-500/5 rounded-lg">
+                            <span className="text-zinc-200 font-medium truncate pr-2">{item.name}</span>
+                            <span className="text-orange-400 font-mono text-xs whitespace-nowrap">{item.details}</span>
+                        </div>
+                    ))}
+                </div>
+                
                 <button 
                   onClick={() => navigate('/inventory')}
                   className="text-center text-xs text-orange-400/70 hover:text-orange-300 mt-1 font-bold uppercase"
@@ -186,12 +203,14 @@ export default function DashboardPage() {
                 </button>
             </div>
         ) : (
-          <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-4 flex items-center gap-3 text-zinc-500">
-               <div className="p-2 bg-green-500/10 rounded-full text-green-500">
-                  <ShoppingBag size={16} />
-               </div>
-               <span className="text-sm">Товаров на складе достаточно</span>
-          </div>
+          !showLowStockAlerts ? null : (
+              <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-4 flex items-center gap-3 text-zinc-500">
+                   <div className="p-2 bg-green-500/10 rounded-full text-green-500">
+                      <ShoppingBag size={16} />
+                   </div>
+                   <span className="text-sm">Товаров на складе достаточно</span>
+              </div>
+          )
         )}
       
       </div>

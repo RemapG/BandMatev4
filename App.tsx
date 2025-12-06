@@ -24,6 +24,9 @@ interface AppContextType {
   refreshData: () => Promise<{ user: User | null; bands: Band[] }>;
   switchBand: (bandId: string) => void;
   logout: () => void;
+  // App Settings
+  showLowStockAlerts: boolean;
+  toggleLowStockAlerts: () => void;
 }
 
 const AppContext = createContext<AppContextType>({} as AppContextType);
@@ -240,6 +243,20 @@ export default function App() {
   const [userBands, setUserBands] = useState<Band[]>([]);
   const [currentBand, setCurrentBand] = useState<Band | null>(null);
   
+  // App Settings State
+  const [showLowStockAlerts, setShowLowStockAlerts] = useState(() => {
+    const saved = localStorage.getItem('bandmate_show_low_stock');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  const toggleLowStockAlerts = () => {
+      setShowLowStockAlerts((prev: boolean) => {
+          const newValue = !prev;
+          localStorage.setItem('bandmate_show_low_stock', JSON.stringify(newValue));
+          return newValue;
+      });
+  };
+  
   // isInitialized ensures we don't render routes until the *initial* check is totally done
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -309,7 +326,17 @@ export default function App() {
   if (!isInitialized) return <LoadingScreen />;
 
   return (
-    <AppContext.Provider value={{ user, currentBand, userBands, currentUserRole, refreshData, switchBand, logout }}>
+    <AppContext.Provider value={{ 
+        user, 
+        currentBand, 
+        userBands, 
+        currentUserRole, 
+        refreshData, 
+        switchBand, 
+        logout,
+        showLowStockAlerts,
+        toggleLowStockAlerts 
+    }}>
       <HashRouter>
         <Routes>
           <Route path="/auth" element={!user ? <AuthPage /> : <Navigate to="/" />} />
