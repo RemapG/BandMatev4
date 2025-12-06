@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { UserRole, BandMember, Sale, SaleItem } from '../types';
 import { BandService, ImageService } from '../services/storage';
-import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone, Trash2, AlertTriangle, ZoomIn, DollarSign, TrendingUp, ShoppingBag, Edit2, Minus, Plus, AlertCircle, ArrowLeft, Users, PieChart, History, Info, CreditCard, Shirt, Package, FileText, Wallet } from 'lucide-react';
+import { Shield, User, Check, X, Briefcase, ChevronRight, Upload, QrCode, Music, Settings, Phone, Trash2, AlertTriangle, ZoomIn, DollarSign, TrendingUp, ShoppingBag, Edit2, Minus, Plus, AlertCircle, ArrowLeft, Users, PieChart, History, Info, CreditCard, Shirt, Package, FileText, Wallet, Mic2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
@@ -70,7 +70,12 @@ export default function BandSettingsPage() {
   const currentMember = currentBand.members.find(m => m.id === user.id);
   const isAdmin = currentMember?.role === UserRole.ADMIN;
   const isModerator = currentMember?.role === UserRole.MODERATOR;
-  const canEditInfo = isAdmin || isModerator; // Managers and Admins
+  // Admin and Moderator can edit basic info. Band Member cannot edit settings.
+  const canEditInfo = isAdmin || isModerator; 
+  // Band Member can view stats/history? Maybe. For now restrict to Admin/Mod as per request for "Manager rights".
+  // If "Band Member" has "same rights as manager", they should see it.
+  const isBandMember = currentMember?.role === UserRole.BAND_MEMBER;
+  const canViewStats = isAdmin || isModerator || isBandMember;
 
   // --- STATS CALCULATION ---
   const stats = useMemo(() => {
@@ -257,17 +262,10 @@ export default function BandSettingsPage() {
     switch (role) {
         case UserRole.ADMIN: return 'Админ';
         case UserRole.MODERATOR: return 'Менеджер';
+        case UserRole.BAND_MEMBER: return 'Участник';
         case UserRole.MEMBER: return 'Продажник';
         default: return role;
     }
-  };
-
-  const getRoleIcon = (role: UserRole) => {
-      switch(role) {
-          case UserRole.ADMIN: return <Shield size={20} />;
-          case UserRole.MODERATOR: return <Briefcase size={20} />;
-          default: return <User size={20} />;
-      }
   };
 
   // --- VIEWS ---
@@ -376,7 +374,7 @@ export default function BandSettingsPage() {
                     <ChevronRight size={18} className="text-zinc-600" />
                 </button>
 
-                {canEditInfo && (
+                {canViewStats && (
                     <>
                         <button 
                             onClick={() => setCurrentView('stats')}
@@ -706,12 +704,13 @@ export default function BandSettingsPage() {
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center border overflow-hidden shrink-0 ${
                     member.role === UserRole.ADMIN 
                         ? 'bg-primary/10 border-primary/20 text-primary' 
-                        : (member.role === UserRole.MODERATOR ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-zinc-800 border-zinc-700 text-zinc-500')
+                        : (member.role === UserRole.MODERATOR ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' 
+                        : (member.role === UserRole.BAND_MEMBER ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-zinc-800 border-zinc-700 text-zinc-500'))
                   }`}>
                     {member.avatarUrl ? (
                          <img src={member.avatarUrl} alt={member.name} className="w-full h-full object-cover" />
                     ) : (
-                         getRoleIcon(member.role)
+                         member.role === UserRole.BAND_MEMBER ? <Mic2 size={20} /> : <User size={20} />
                     )}
                   </div>
                   <div>
@@ -726,7 +725,8 @@ export default function BandSettingsPage() {
                     <span className={`text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full ${
                         member.role === UserRole.ADMIN 
                             ? 'bg-primary/20 text-primary' 
-                            : (member.role === UserRole.MODERATOR ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-800 text-zinc-400')
+                            : (member.role === UserRole.MODERATOR ? 'bg-purple-500/20 text-purple-400' 
+                            : (member.role === UserRole.BAND_MEMBER ? 'bg-blue-500/20 text-blue-400' : 'bg-zinc-800 text-zinc-400'))
                     }`}>
                     {getRoleLabel(member.role)}
                     </span>

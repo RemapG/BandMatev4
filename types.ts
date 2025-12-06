@@ -2,7 +2,8 @@
 export enum UserRole {
   ADMIN = 'ADMIN',
   MODERATOR = 'MODERATOR',
-  MEMBER = 'MEMBER'
+  BAND_MEMBER = 'BAND_MEMBER', // New role: Full project access
+  MEMBER = 'MEMBER' // Salesperson (Restricted)
 }
 
 export interface User {
@@ -52,13 +53,13 @@ export interface Sale {
 export interface Band {
   id: string;
   name: string;
-  description?: string; // New field
+  description?: string; 
   imageUrl?: string;
-  paymentQrUrl?: string; // New field for Payment QR Code
-  paymentPhoneNumber?: string; // New field for Payment Phone Number
-  paymentRecipientName?: string; // New field for Payment Recipient Name
-  showPaymentQr?: boolean; // New toggle
-  showPaymentPhone?: boolean; // New toggle
+  paymentQrUrl?: string; 
+  paymentPhoneNumber?: string; 
+  paymentRecipientName?: string; 
+  showPaymentQr?: boolean; 
+  showPaymentPhone?: boolean; 
   joinCode: string;
   members: BandMember[];
   inventory: Item[];
@@ -73,7 +74,17 @@ export interface CartItem extends Item {
 
 // --- PROJECT MANAGEMENT TYPES ---
 
-export type ProjectType = 'SONG' | 'EVENT';
+export type ProjectType = 'SONG' | 'EVENT' | 'REHEARSAL';
+
+export interface Comment {
+  id: string;
+  projectId: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  content: string;
+  createdAt: string; // ISO String
+}
 
 export interface Task {
   id: string;
@@ -89,6 +100,11 @@ export interface Project {
   title: string;
   type: ProjectType;
   status: 'IN_PROGRESS' | 'COMPLETED';
+  date?: string; // ISO Date (YYYY-MM-DD)
+  startTime?: string; // HH:MM string
+  location?: string; // Venue name or address
+  description?: string; // Extra info
   tasks: Task[];
+  comments?: Comment[]; // Optional, fetched separately mostly
   createdAt: string;
 }

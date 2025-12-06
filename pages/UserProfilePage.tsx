@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../App';
 import { BandService } from '../services/storage';
-import { User, UserRole, BandMember } from '../types';
-import { ChevronLeft, User as UserIcon, Music, Shield, Briefcase, Check, AlertTriangle, Trash2, X } from 'lucide-react';
+import { User, UserRole } from '../types';
+import { ChevronLeft, User as UserIcon, Music, Shield, Briefcase, Check, AlertTriangle, Trash2, X, Users, Mic2 } from 'lucide-react';
 
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
@@ -52,7 +52,8 @@ export default function UserProfilePage() {
     switch (role) {
         case UserRole.ADMIN: return 'Админ';
         case UserRole.MODERATOR: return 'Менеджер';
-        case UserRole.MEMBER: return 'Участник';
+        case UserRole.BAND_MEMBER: return 'Участник группы';
+        case UserRole.MEMBER: return 'Продажник';
         default: return role;
     }
   };
@@ -61,6 +62,7 @@ export default function UserProfilePage() {
       switch(role) {
           case UserRole.ADMIN: return 'text-primary bg-primary/10 border-primary/20';
           case UserRole.MODERATOR: return 'text-purple-400 bg-purple-500/10 border-purple-500/20';
+          case UserRole.BAND_MEMBER: return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
           default: return 'text-zinc-500 bg-zinc-800 border-zinc-700';
       }
   };
@@ -189,7 +191,7 @@ export default function UserProfilePage() {
             )}
         </div>
 
-        {/* Role Editor Modal (Imported Logic) */}
+        {/* Role Editor Modal */}
         {showRoleModal && createPortal(
           <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
               <div className="bg-zinc-900 border border-zinc-800 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 pb-12 sm:pb-6 shadow-2xl relative animate-slide-up">
@@ -221,9 +223,27 @@ export default function UserProfilePage() {
                           </div>
                           <div className="text-left">
                               <div className="text-white font-bold">Продажник</div>
-                              <div className="text-xs text-zinc-500">Может только продавать (Касса)</div>
+                              <div className="text-xs text-zinc-500">Только касса</div>
                           </div>
                           {editingRole === UserRole.MEMBER && <Check className="ml-auto text-zinc-400" size={20} />}
+                      </button>
+
+                      <button
+                        onClick={() => handleRoleChange(UserRole.BAND_MEMBER)}
+                        className={`w-full p-4 rounded-xl border flex items-center gap-4 transition-all ${
+                            editingRole === UserRole.BAND_MEMBER
+                            ? 'bg-blue-900/20 border-blue-500/50 ring-1 ring-blue-500'
+                            : 'bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800'
+                        }`}
+                      >
+                          <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400">
+                              <Mic2 size={20} />
+                          </div>
+                          <div className="text-left">
+                              <div className="text-white font-bold">Участник группы</div>
+                              <div className="text-xs text-zinc-500">Доступ к проектам и складу</div>
+                          </div>
+                           {editingRole === UserRole.BAND_MEMBER && <Check className="ml-auto text-blue-500" size={20} />}
                       </button>
 
                       <button
@@ -239,7 +259,7 @@ export default function UserProfilePage() {
                           </div>
                           <div className="text-left">
                               <div className="text-white font-bold">Менеджер</div>
-                              <div className="text-xs text-zinc-500">Продажи + Редактирование склада</div>
+                              <div className="text-xs text-zinc-500">Управление финансами и складом</div>
                           </div>
                            {editingRole === UserRole.MODERATOR && <Check className="ml-auto text-purple-500" size={20} />}
                       </button>

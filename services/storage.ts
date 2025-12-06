@@ -1,5 +1,5 @@
 
-import { Band, User, UserRole, Item, Sale, BandMember, SaleItem, Project, Task, ProjectType } from '../types';
+import { Band, User, UserRole, Item, Sale, BandMember, SaleItem, Project, Task, ProjectType, Comment } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
 // --- HELPER FOR MOCK FALLBACK ---
@@ -381,7 +381,7 @@ export const BandService = {
   approveRequest: async (bandId: string, userId: string) => {
     if (USE_MOCK) return MockBand.approveRequest(bandId, userId);
 
-    // Default role: MEMBER (Продажник)
+    // Default role: MEMBER (Продажник) - can be changed later
     const { error } = await supabase.from('band_members').insert([{
         band_id: bandId,
         user_id: userId,
@@ -394,12 +394,12 @@ export const BandService = {
         .eq('band_id', bandId).eq('user_id', userId);
   },
 
-  updateMemberRole: async (bandId: string, userId: string, role: UserRole) => {
-    if (USE_MOCK) return MockBand.updateMemberRole(bandId, userId, role);
+  updateMemberRole: async (bandId: string, userId: string, role: string) => {
+    if (USE_MOCK) return MockBand.updateMemberRole(bandId, userId, role as UserRole);
 
     const { error } = await supabase
       .from('band_members')
-      .update({ role })
+      .update({ role: role })
       .eq('band_id', bandId)
       .eq('user_id', userId);
 
@@ -582,6 +582,10 @@ export const ProjectService = {
       title: p.title,
       type: p.type as ProjectType,
       status: p.status,
+      date: p.date,
+      startTime: p.start_time, // Map separate time column
+      location: p.location,
+      description: p.description,
       createdAt: p.created_at,
       tasks: (tasks || [])
         .filter((t: any) => t.project_id === p.id)
@@ -600,18 +604,51 @@ export const ProjectService = {
     }));
   },
 
-  createProject: async (bandId: string, title: string, type: ProjectType): Promise<void> => {
+  createProject: async (bandId: string, title: string, type: ProjectType, date?: string, startTime?: string, location?: string, description?: string): Promise<void> => {
      if (USE_MOCK) return;
+     const payload: any = { band_id: bandId, title, type, status: 'IN_PROGRESS' };
+     // FIX: Convert empty string to null for DB compliance
+     if (date) payload.date = date; 
+     if (startTime) payload.start_time = startTime; 
+     if (location) payload.location = location;
+     if (description) payload.description = description;
+
      const { error } = await supabase
        .from('projects')
-       .insert([{ band_id: bandId, title, type, status: 'IN_PROGRESS' }]);
+       .insert([payload]);
      if (error) throw new Error(error.message);
+  },
+
+  updateProject: async (projectId: string, updates: Partial<Project>): Promise<void> => {
+      if (USE_MOCK) return;
+      const payload: any = {};
+      
+      // Map frontend fields to DB columns
+      if (updates.title !== undefined) payload.title = updates.title;
+      
+      // FIX: Convert empty strings to null for Date/Time columns to avoid "invalid input syntax"
+      if (updates.date !== undefined) payload.date = updates.date || null;
+      if (updates.startTime !== undefined) payload.start_time = updates.startTime || null;
+      
+      if (updates.location !== undefined) payload.location = updates.location;
+      if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.status !== undefined) payload.status = updates.status;
+
+      const { error } = await supabase
+        .from('projects')
+        .update(payload)
+        .eq('id', projectId);
+
+      if (error) throw new Error(error.message);
   },
 
   deleteProject: async (projectId: string): Promise<void> => {
       if (USE_MOCK) return;
       const { error } = await supabase.from('projects').delete().eq('id', projectId);
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("Delete Project Error:", error);
+        throw new Error(error.message);
+      }
   },
 
   addTask: async (projectId: string, title: string): Promise<void> => {
@@ -644,11 +681,68 @@ export const ProjectService = {
       if (USE_MOCK) return;
       const { error } = await supabase.from('tasks').delete().eq('id', taskId);
       if (error) throw new Error(error.message);
+  },
+
+  getProjectComments: async (projectId: string): Promise<Comment[]> => {
+      if (USE_MOCK) return [];
+      
+      try {
+        const { data, error } = await supabase
+            .from('project_comments')
+            .select('*')
+            .eq('project_id', projectId)
+            .order('created_at', { ascending: true });
+        
+        if (error) {
+            console.warn("Could not fetch comments:", error.message);
+            return []; // Fail gracefully if table missing
+        }
+        
+        return data.map((c: any) => ({
+            id: c.id,
+            projectId: c.project_id,
+            userId: c.user_id,
+            userName: c.user_name || 'User',
+            userAvatar: c.user_avatar,
+            content: c.content,
+            createdAt: c.created_at
+        }));
+      } catch (e) {
+        console.warn("Exception fetching comments:", e);
+        return [];
+      }
+  },
+
+  addProjectComment: async (projectId: string, user: User, content: string): Promise<void> => {
+      if (USE_MOCK) return;
+      
+      const { error } = await supabase
+        .from('project_comments')
+        .insert([{
+            project_id: projectId,
+            user_id: user.id,
+            user_name: user.name,
+            user_avatar: user.avatarUrl,
+            content: content
+        }]);
+
+      if (error) throw new Error(error.message);
+  },
+
+  deleteProjectComment: async (commentId: string): Promise<void> => {
+    if (USE_MOCK) return;
+
+    const { error } = await supabase
+      .from('project_comments')
+      .delete()
+      .eq('id', commentId);
+    
+    if (error) throw new Error(error.message);
   }
 };
 
 
-// --- LEGACY MOCK IMPLEMENTATION (UNCHANGED for brevity, assume similar structure) ---
+// --- LEGACY MOCK IMPLEMENTATION (UNCHANGED) ---
 const STORAGE_KEYS = {
   USER: 'bandmate_user_v3',
   USERS_DB: 'bandmate_users_db_v3',
