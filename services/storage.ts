@@ -567,7 +567,7 @@ export const ProjectService = {
     if (error) throw new Error(error.message);
     if (!projects || projects.length === 0) return [];
 
-    // AUTO-ARCHIVE LOGIC: Check for past events and mark them completed
+    // AUTO-ARCHIVE LOGIC
     const now = new Date();
     const updatesPromises: Promise<any>[] = [];
 
@@ -586,10 +586,8 @@ export const ProjectService = {
             tasks: [] // Will populate below
         };
 
-        // Check if Event/Rehearsal is in the past and still IN_PROGRESS
         if ((proj.type === 'EVENT' || proj.type === 'REHEARSAL') && proj.status === 'IN_PROGRESS' && proj.date) {
             const eventDate = new Date(proj.date);
-            // If time exists, set it, otherwise assume end of day (so we don't archive too early)
             if (proj.startTime) {
                 const [h, m] = proj.startTime.split(':');
                 eventDate.setHours(Number(h), Number(m));
@@ -598,9 +596,7 @@ export const ProjectService = {
             }
 
             if (eventDate < now) {
-                // It's in the past, mark as completed locally
                 proj.status = 'COMPLETED';
-                // Trigger background update
                 updatesPromises.push(
                     supabase.from('projects').update({ status: 'COMPLETED' }).eq('id', proj.id)
                 );
@@ -609,7 +605,6 @@ export const ProjectService = {
         return proj;
     });
 
-    // Fire and forget update requests (don't block the UI)
     if (updatesPromises.length > 0) {
         Promise.all(updatesPromises).catch(err => console.warn("Background archive failed", err));
     }
@@ -623,29 +618,39 @@ export const ProjectService = {
     if (taskError) throw new Error(taskError.message);
 
     // Map Tasks to Projects
-    return mappedProjects.map((p) => ({
-      ...p,
-      tasks: (tasks || [])
+    return mappedProjects.map((p) => {
+      const projectTasks = (tasks || [])
         .filter((t: any) => t.project_id === p.id)
         .map((t: any) => ({
           id: t.id,
           projectId: t.project_id,
           title: t.title,
           isCompleted: t.is_completed,
-          linkUrl: t.link_url
+          linkUrl: t.link_url,
+          sortOrder: t.sort_order, // Map snake_case to camelCase
+          createdAt: t.created_at
         }))
         .sort((a: any, b: any) => {
-           // Sort logic: Not completed first
-           if (a.isCompleted === b.isCompleted) return 0;
-           return a.isCompleted ? 1 : -1;
-        })
-    }));
+           // Sort by sortOrder (asc), then by createdAt (asc)
+           const orderA = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
+           const orderB = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
+           
+           if (orderA !== orderB) return orderA - orderB;
+           
+           // Fallback to creation date to keep stable if no order
+           if (a.createdAt && b.createdAt) {
+               return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+           }
+           return 0;
+        });
+
+      return { ...p, tasks: projectTasks };
+    });
   },
 
   createProject: async (bandId: string, title: string, type: ProjectType, date?: string, startTime?: string, location?: string, description?: string): Promise<void> => {
      if (USE_MOCK) return;
      const payload: any = { band_id: bandId, title, type, status: 'IN_PROGRESS' };
-     // FIX: Convert empty string to null for DB compliance
      if (date) payload.date = date; 
      if (startTime) payload.start_time = startTime; 
      if (location) payload.location = location;
@@ -660,14 +665,9 @@ export const ProjectService = {
   updateProject: async (projectId: string, updates: Partial<Project>): Promise<void> => {
       if (USE_MOCK) return;
       const payload: any = {};
-      
-      // Map frontend fields to DB columns
       if (updates.title !== undefined) payload.title = updates.title;
-      
-      // FIX: Convert empty strings to null for Date/Time columns to avoid "invalid input syntax"
       if (updates.date !== undefined) payload.date = updates.date || null;
       if (updates.startTime !== undefined) payload.start_time = updates.startTime || null;
-      
       if (updates.location !== undefined) payload.location = updates.location;
       if (updates.description !== undefined) payload.description = updates.description;
       if (updates.status !== undefined) payload.status = updates.status;
@@ -683,17 +683,28 @@ export const ProjectService = {
   deleteProject: async (projectId: string): Promise<void> => {
       if (USE_MOCK) return;
       const { error } = await supabase.from('projects').delete().eq('id', projectId);
-      if (error) {
-        console.error("Delete Project Error:", error);
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
   },
 
   addTask: async (projectId: string, title: string): Promise<void> => {
       if (USE_MOCK) return;
+      
+      // Determine new sort order (append to end)
+      const { count } = await supabase
+          .from('tasks')
+          .select('*', { count: 'exact', head: true })
+          .eq('project_id', projectId);
+      
+      const nextOrder = count || 0;
+
       const { error } = await supabase
         .from('tasks')
-        .insert([{ project_id: projectId, title, is_completed: false }]);
+        .insert([{ 
+            project_id: projectId, 
+            title, 
+            is_completed: false,
+            sort_order: nextOrder
+        }]);
       if (error) throw new Error(error.message);
   },
 
@@ -718,6 +729,24 @@ export const ProjectService = {
   deleteTask: async (taskId: string): Promise<void> => {
       if (USE_MOCK) return;
       const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+      if (error) throw new Error(error.message);
+  },
+
+  reorderTasks: async (tasks: Task[]) => {
+      if (USE_MOCK) return;
+      
+      const updates = tasks.map((t, index) => ({
+          id: t.id,
+          project_id: t.projectId,
+          title: t.title, // Required by DB Not Null constraint
+          is_completed: t.isCompleted, // Good to maintain consistency
+          sort_order: index
+      }));
+
+      const { error } = await supabase
+        .from('tasks')
+        .upsert(updates, { onConflict: 'id' });
+
       if (error) throw new Error(error.message);
   },
 
@@ -1019,3 +1048,4 @@ const MockBand = {
         localStorage.setItem(STORAGE_KEYS.BANDS, JSON.stringify(bands));
     }
 };
+    

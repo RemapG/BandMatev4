@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useApp } from '../App';
 import { Item, ItemVariant, UserRole } from '../types';
 import { BandService, ImageService } from '../services/storage';
-import { Plus, Edit2, Search, Package, Image as ImageIcon, Trash2, X, AlertTriangle, ChevronRight, ZoomIn, Check, ChevronLeft } from 'lucide-react';
+import { Plus, Edit2, Search, Package, Image as ImageIcon, Trash2, X, ChevronRight, ZoomIn, Check, ChevronLeft } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import getCroppedImg, { PixelCrop } from '../utils/canvasUtils';
 import { useNavigate } from 'react-router-dom';
@@ -96,7 +96,7 @@ export default function InventoryPage() {
       setIsCropping(true);
       setZoom(1);
       setCrop({ x: 0, y: 0 });
-      e.target.value = ''; // Reset input to allow re-selecting same file
+      e.target.value = ''; 
     }
   };
 
@@ -109,11 +109,9 @@ export default function InventoryPage() {
     try {
       const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
       if (croppedBlob) {
-        // Convert Blob to File
         const file = new File([croppedBlob], `item-${Date.now()}.jpg`, { type: 'image/jpeg' });
         setItemImage(file);
         
-        // Update Preview
         if (imagePreview && imagePreview.startsWith('blob:')) {
              URL.revokeObjectURL(imagePreview);
         }
@@ -201,8 +199,6 @@ export default function InventoryPage() {
     }
   };
 
-  const getTotalStock = (item: Item) => item.variants.reduce((acc, v) => acc + v.stock, 0);
-
   const filteredItems = useMemo(() => {
     return currentBand.inventory
         .filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -210,7 +206,6 @@ export default function InventoryPage() {
   }, [currentBand.inventory, searchTerm]);
 
   return (
-    // Updated padding: p-5 on mobile, md:p-10 on desktop
     <div className="space-y-6 h-full flex flex-col pb-24 p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] md:p-10">
       {/* Header */}
       <div className="flex items-center justify-between pt-4">
@@ -304,7 +299,7 @@ export default function InventoryPage() {
           )}
       </div>
 
-      {/* Edit Modal (Portal) - Code omitted for brevity, logic remains same */}
+      {/* Edit Modal (Portal) */}
       {isEditing && createPortal(
           <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in touch-none">
               <div className="bg-zinc-950 border border-zinc-800 w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-6 pb-12 sm:pb-6 shadow-2xl relative animate-slide-up flex flex-col max-h-[95vh]">
@@ -322,7 +317,7 @@ export default function InventoryPage() {
 
                   <form onSubmit={handleSave} className="flex-1 overflow-y-auto space-y-5 pr-2 touch-pan-y">
                        {/* Image Upload */}
-                       <div className="flex justify-center">
+                       <div className="flex flex-col items-center gap-3">
                            <label className="relative cursor-pointer group">
                                <div className="w-32 h-32 rounded-2xl bg-zinc-900 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden transition-colors hover:border-primary relative">
                                    {imagePreview ? (
@@ -521,7 +516,6 @@ export default function InventoryPage() {
           </div>,
           document.body
       )}
-
     </div>
   );
 }

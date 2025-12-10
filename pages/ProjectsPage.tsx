@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../App';
 import { ProjectService } from '../services/storage';
 import { Project, Task, ProjectType, Comment } from '../types';
-import { FolderKanban, Plus, Music, Calendar, ChevronRight, X, CheckCircle, Circle, Link as LinkIcon, ExternalLink, Trash2, Mic2, Mic, MapPin, Navigation, Clock, AlignLeft, FileText, Check, Edit2, MessageSquare, Send, User as UserIcon, AlertTriangle } from 'lucide-react';
+import { FolderKanban, Plus, Music, Calendar, ChevronRight, X, CheckCircle, Circle, Link as LinkIcon, ExternalLink, Trash2, Mic2, Mic, MapPin, Navigation, Clock, AlignLeft, FileText, Check, Edit2, MessageSquare, Send, User as UserIcon, AlertTriangle, GripVertical } from 'lucide-react';
 
 export default function ProjectsPage() {
   const { currentBand, user } = useApp();
@@ -46,6 +45,9 @@ export default function ProjectsPage() {
   // Edit Link State
   const [editingLinkTask, setEditingLinkTask] = useState<string | null>(null);
   const [linkUrlInput, setLinkUrlInput] = useState('');
+
+  // --- DRAG AND DROP STATE ---
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   // --- CHAT STATE ---
   const [comments, setComments] = useState<Comment[]>([]);
@@ -129,8 +131,6 @@ export default function ProjectsPage() {
   const handleCreateProject = async () => {
       if (!currentBand || !newTitle) return;
       
-      // Pass date and time separately to service. 
-      // Ensure empty strings are passed as undefined/null in the service logic (fixed in storage.ts)
       await ProjectService.createProject(
           currentBand.id, 
           newTitle, 
@@ -249,6 +249,89 @@ export default function ProjectsPage() {
       fetchProjects();
   };
 
+  // --- DRAG AND DROP HANDLERS ---
+  
+  const moveTask = (dragId: string, targetId: string) => {
+      if (!activeProject || dragId === targetId) return;
+      
+      const tasks = [...activeProject.tasks];
+      const dragIndex = tasks.findIndex(t => t.id === dragId);
+      const targetIndex = tasks.findIndex(t => t.id === targetId);
+      
+      if (dragIndex === -1 || targetIndex === -1) return;
+      
+      const [item] = tasks.splice(dragIndex, 1);
+      tasks.splice(targetIndex, 0, item);
+      
+      // Update state for UI feedback
+      setActiveProject({ ...activeProject, tasks });
+  };
+
+  const saveTaskOrder = async () => {
+      if (!activeProject) return;
+      try {
+          await ProjectService.reorderTasks(activeProject.tasks);
+      } catch (error) {
+          console.error("Failed to save order", error);
+          fetchProjects(); // Revert on error
+      }
+  };
+
+  // Desktop Drag Handlers
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, taskId: string) => {
+      setDraggedTaskId(taskId);
+      e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetTaskId: string) => {
+      e.preventDefault();
+      if (!draggedTaskId) return;
+      
+      moveTask(draggedTaskId, targetTaskId);
+      setDraggedTaskId(null);
+      await saveTaskOrder();
+  };
+
+  // Mobile Touch Handlers
+  const touchItemRef = useRef<string | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent, taskId: string) => {
+      touchItemRef.current = taskId;
+      setDraggedTaskId(taskId);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+      if (!touchItemRef.current) return;
+      // Prevent scrolling while dragging a task
+      // e.preventDefault(); // Note: This might block scrolling even if we want to scroll. 
+      // Better to rely on touch-action: none CSS on the drag handle.
+
+      const touch = e.touches[0];
+      const element = document.elementFromPoint(touch.clientX, touch.clientY);
+      const taskRow = element?.closest('[data-task-id]');
+      
+      if (taskRow) {
+          const targetId = taskRow.getAttribute('data-task-id');
+          if (targetId && targetId !== touchItemRef.current) {
+              moveTask(touchItemRef.current, targetId);
+          }
+      }
+  };
+
+  const handleTouchEnd = async () => {
+      if (touchItemRef.current) {
+          await saveTaskOrder();
+      }
+      setDraggedTaskId(null);
+      touchItemRef.current = null;
+  };
+
+
   // --- CHAT LOGIC ---
   const handleSendComment = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -326,7 +409,7 @@ export default function ProjectsPage() {
       window.open(url, '_blank');
   };
 
-  // FILTER: Only show active projects. Completed/Archived projects are shown in BandSettings -> Archive.
+  // FILTER: Only show active projects.
   const filteredProjects = projects.filter(p => p.type === activeTab && p.status === 'IN_PROGRESS');
 
   if (!currentBand) return null;
@@ -335,7 +418,6 @@ export default function ProjectsPage() {
   const isEventOrRehearsal = activeProject?.type === 'EVENT' || activeProject?.type === 'REHEARSAL';
 
   return (
-    // Updated padding: p-5 on mobile, md:p-10 on desktop
     <div className="h-full flex flex-col p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] md:p-10 pb-24">
         <header className="flex items-center justify-between mb-6">
             <div>
@@ -633,7 +715,7 @@ export default function ProjectsPage() {
                  {/* Content Scrollable Area */}
                  <div className={`flex-1 overflow-y-auto p-5 ${isSong ? 'pb-32' : 'pb-5'}`}>
                       
-                      {/* Event/Rehearsal Info Block */}
+                      {/* Event/Rehearsal Info Block - Same as before */}
                       {isEventOrRehearsal && (
                           <div className="space-y-6">
                               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3">
@@ -765,7 +847,27 @@ export default function ProjectsPage() {
                       {isSong && (
                           <div className="space-y-3">
                                {activeProject.tasks.map(task => (
-                                   <div key={task.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-3 group">
+                                   <div 
+                                      key={task.id} 
+                                      data-task-id={task.id}
+                                      className={`bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-3 group transition-opacity duration-200 ${draggedTaskId === task.id ? 'opacity-30 border-dashed border-purple-500' : ''}`}
+                                      draggable
+                                      onDragStart={(e) => handleDragStart(e, task.id)}
+                                      onDragOver={handleDragOver}
+                                      onDrop={(e) => handleDrop(e, task.id)}
+                                      onDragEnd={() => setDraggedTaskId(null)}
+                                      onTouchStart={(e) => handleTouchStart(e, task.id)}
+                                      onTouchMove={handleTouchMove}
+                                      onTouchEnd={handleTouchEnd}
+                                   >
+                                       {/* Drag Handle */}
+                                       <div 
+                                         className="flex items-center justify-center text-zinc-700 cursor-grab active:cursor-grabbing touch-none"
+                                         style={{ touchAction: 'none' }}
+                                       >
+                                            <GripVertical size={20} />
+                                       </div>
+
                                        <button onClick={() => handleToggleTask(task)} className="mt-1 shrink-0">
                                            {task.isCompleted ? (
                                                <CheckCircle className="text-green-500" size={20} />
@@ -830,6 +932,7 @@ export default function ProjectsPage() {
 
                       {/* --- CHAT SECTION --- */}
                       <div className="mt-8 mb-4">
+                           {/* ... chat code ... */}
                            <div className="flex items-center gap-2 mb-4">
                                <MessageSquare size={16} className="text-zinc-500" />
                                <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Чат проекта</span>

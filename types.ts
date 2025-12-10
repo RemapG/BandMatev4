@@ -92,6 +92,8 @@ export interface Task {
   title: string;
   isCompleted: boolean;
   linkUrl?: string;
+  sortOrder?: number;
+  createdAt?: string;
 }
 
 export interface Project {
