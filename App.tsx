@@ -1,8 +1,7 @@
-
-import React, { useState, useEffect, createContext, useContext, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext, useRef, useLayoutEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
-import { User, Band, BandMember, UserRole } from './types';
-import { AuthService, BandService } from './services/storage';
+import { User, Band, BandMember, UserRole, Project } from './types';
+import { AuthService, BandService, ProjectService } from './services/storage';
 import { LayoutDashboard, ShoppingCart, Shirt, Users, LogOut, Music, ChevronDown, PlusCircle, User as UserIcon, Settings, Menu as MenuIcon, Settings2, FolderKanban } from 'lucide-react';
 
 // --- Pages ---
@@ -24,9 +23,17 @@ interface AppContextType {
   currentBand: Band | null;
   userBands: Band[];
   currentUserRole: UserRole | null;
+  
+  // Data State
+  projects: Project[];
+  projectsLoading: boolean;
+  
+  // Actions
   refreshData: () => Promise<{ user: User | null; bands: Band[] }>;
+  refreshProjects: (force?: boolean) => Promise<void>;
   switchBand: (bandId: string) => void;
   logout: () => void;
+  
   // App Settings
   showLowStockAlerts: boolean;
   toggleLowStockAlerts: () => void;
@@ -249,6 +256,11 @@ export default function App() {
   const [userBands, setUserBands] = useState<Band[]>([]);
   const [currentBand, setCurrentBand] = useState<Band | null>(null);
   
+  // --- CACHE STATE ---
+  // We store projects per band ID to avoid re-fetching when switching back and forth
+  const [projectsCache, setProjectsCache] = useState<Record<string, Project[]>>({});
+  const [projectsLoading, setProjectsLoading] = useState(false);
+
   // App Settings State
   const [showLowStockAlerts, setShowLowStockAlerts] = useState(() => {
     const saved = localStorage.getItem('bandmate_show_low_stock');
@@ -266,8 +278,11 @@ export default function App() {
   // isInitialized ensures we don't render routes until the *initial* check is totally done
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // --- DATA FETCHING ---
+
   const refreshData = async (): Promise<{ user: User | null; bands: Band[] }> => {
     try {
+        // Fetch fresh data
         const currentUser = await AuthService.getCurrentUser();
         let myBands: Band[] = [];
 
@@ -280,8 +295,15 @@ export default function App() {
 
             // Logic to preserve or set current band
             if (currentBand) {
+                // Find the updated version of the current band to update sales/inventory
                 const updatedCurrent = myBands.find(b => b.id === currentBand.id);
-                setCurrentBand(updatedCurrent || myBands[0] || null);
+                // Update state ONLY if data changed, but keep object ref if identical to avoid flickers
+                if (updatedCurrent) {
+                    setCurrentBand(updatedCurrent);
+                } else {
+                    // Current band was removed/left
+                    setCurrentBand(myBands[0] || null);
+                }
             } else if (myBands.length > 0) {
                 setCurrentBand(myBands[0]);
             } else {
@@ -300,12 +322,43 @@ export default function App() {
     }
   };
 
+  const refreshProjects = async (force: boolean = false) => {
+      if (!currentBand) return;
+      
+      const bandId = currentBand.id;
+      
+      // If we have cached data and not forcing, don't fetch (or do background fetch?)
+      // For "load first" feel, if we have data, we rely on it.
+      if (!force && projectsCache[bandId]) {
+          return; 
+      }
+
+      setProjectsLoading(true);
+      try {
+          const data = await ProjectService.getProjects(bandId);
+          setProjectsCache(prev => ({ ...prev, [bandId]: data }));
+      } catch (e) {
+          console.error("Failed to load projects", e);
+      } finally {
+          setProjectsLoading(false);
+      }
+  };
+
+  // When band changes, fetch its projects if not in cache
+  useEffect(() => {
+      if (currentBand?.id) {
+          const hasCache = projectsCache[currentBand.id];
+          if (!hasCache) {
+              refreshProjects(true);
+          }
+      }
+  }, [currentBand?.id]);
+
   useEffect(() => {
     const init = async () => {
         setIsInitialized(false);
         await refreshData();
-        // Artificial delay for smooth transition if data loads too fast, 
-        // helps avoid flicker between "Login" and "Dashboard" if session exists
+        // Artificial delay for smooth transition if data loads too fast
         setTimeout(() => setIsInitialized(true), 500); 
     }
     init();
@@ -316,6 +369,7 @@ export default function App() {
     setUser(null);
     setUserBands([]);
     setCurrentBand(null);
+    setProjectsCache({}); // Clear cache on logout
   };
 
   const switchBand = (bandId: string) => {
@@ -329,6 +383,10 @@ export default function App() {
     return member ? member.role : null;
   }, [currentBand, user]);
 
+  const currentProjects = useMemo(() => {
+      return currentBand ? (projectsCache[currentBand.id] || []) : [];
+  }, [currentBand, projectsCache]);
+
   if (!isInitialized) return <LoadingScreen />;
 
   return (
@@ -337,7 +395,12 @@ export default function App() {
         currentBand, 
         userBands, 
         currentUserRole, 
+        
+        projects: currentProjects,
+        projectsLoading,
+
         refreshData, 
+        refreshProjects,
         switchBand, 
         logout,
         showLowStockAlerts,

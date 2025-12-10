@@ -4,34 +4,21 @@ import { useApp } from '../App';
 import { Music, ChevronDown, ShoppingBag, AlertCircle, Sparkles, X, Calendar, Mic, Clock, MapPin, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { generateSalesAnalysis } from '../services/geminiService';
-import { ProjectService } from '../services/storage';
 import { Project } from '../types';
+import ProjectDetailsModal from '../components/ProjectDetailsModal';
 
 export default function DashboardPage() {
-  const { currentBand, userBands, switchBand, showLowStockAlerts } = useApp();
+  const { currentBand, userBands, switchBand, showLowStockAlerts, projects } = useApp();
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
   const navigate = useNavigate();
   
+  // Active Project View
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+
   // AI State
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  // Projects State
-  const [projects, setProjects] = useState<Project[]>([]);
-
-  useEffect(() => {
-    const loadProjects = async () => {
-        if (!currentBand) return;
-        try {
-            const data = await ProjectService.getProjects(currentBand.id);
-            setProjects(data);
-        } catch (e) {
-            console.error("Failed to load dashboard projects", e);
-        }
-    };
-    loadProjects();
-  }, [currentBand]);
 
   // Low Stock Items (Grouped by Product)
   const lowStockItems = useMemo(() => {
@@ -40,11 +27,8 @@ export default function DashboardPage() {
       const items: { id: string; name: string; details: string }[] = [];
       
       currentBand.inventory.forEach(item => {
-          // Find all variants of this item that are low stock
           const lowVariants = item.variants.filter(v => v.stock < 5);
-          
           if (lowVariants.length > 0) {
-              // Create a string description: "S: 2, M: 0"
               const details = lowVariants.map(v => `${v.label}: ${v.stock}`).join(', ');
               items.push({
                   id: item.id,
@@ -213,7 +197,6 @@ export default function DashboardPage() {
         )}
 
         {/* LOW STOCK ALERT */}
-        {/* Only show if enabled in settings and not dismissed */}
         {showLowStockAlerts && !isAlertDismissed && lowStockItems.length > 0 && (
             <div className="bg-orange-500/10 border border-orange-500/20 rounded-3xl p-4 flex flex-col gap-3 relative animate-fade-in">
                 <button 
@@ -263,7 +246,7 @@ export default function DashboardPage() {
                      {upcomingEvents.map(event => (
                          <button 
                             key={event.id}
-                            onClick={() => navigate('/projects?id=' + event.id)}
+                            onClick={() => setActiveProjectId(event.id)}
                             className="w-full bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between hover:bg-zinc-800 transition-colors"
                          >
                              <div className="flex items-center gap-4">
@@ -315,7 +298,7 @@ export default function DashboardPage() {
                          return (
                             <button 
                                 key={song.id}
-                                onClick={() => navigate('/projects?id=' + song.id)}
+                                onClick={() => setActiveProjectId(song.id)}
                                 className="w-full bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl hover:bg-zinc-800 transition-colors"
                             >
                                 <div className="flex justify-between items-center mb-2">
@@ -338,6 +321,10 @@ export default function DashboardPage() {
             </div>
         )}
       
+        <ProjectDetailsModal 
+            projectId={activeProjectId} 
+            onClose={() => setActiveProjectId(null)}
+        />
       </div>
     </div>
   );
