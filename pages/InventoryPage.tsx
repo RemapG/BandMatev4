@@ -32,11 +32,12 @@ export default function InventoryPage() {
 
   // Variants State
   const [hasVariants, setHasVariants] = useState(true);
-  const [variants, setVariants] = useState<ItemVariant[]>([
-    { label: 'S', stock: 0 },
-    { label: 'M', stock: 0 },
-    { label: 'L', stock: 0 },
-    { label: 'XL', stock: 0 }
+  // Use number | string for stock to allow empty input
+  const [variants, setVariants] = useState<{label: string; stock: number | string}[]>([
+    { label: 'S', stock: '' },
+    { label: 'M', stock: '' },
+    { label: 'L', stock: '' },
+    { label: 'XL', stock: '' }
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -65,7 +66,11 @@ export default function InventoryPage() {
         
         const isUniversal = item.variants.length === 1 && item.variants[0].label === 'Universal';
         setHasVariants(!isUniversal);
-        setVariants(JSON.parse(JSON.stringify(item.variants))); 
+        // Map existing variants
+        setVariants(item.variants.map(v => ({
+            label: v.label,
+            stock: v.stock
+        }))); 
     } else {
         setCurrentItemId(null);
         setName('');
@@ -74,10 +79,10 @@ export default function InventoryPage() {
         setImagePreview(null);
         setHasVariants(true);
         setVariants([
-            { label: 'S', stock: 0 },
-            { label: 'M', stock: 0 },
-            { label: 'L', stock: 0 },
-            { label: 'XL', stock: 0 }
+            { label: 'S', stock: '' },
+            { label: 'M', stock: '' },
+            { label: 'L', stock: '' },
+            { label: 'XL', stock: '' }
         ]);
     }
     setItemImage(null);
@@ -127,14 +132,15 @@ export default function InventoryPage() {
     }
   };
 
-  const updateVariant = (index: number, field: keyof ItemVariant, value: string | number) => {
+  const updateVariant = (index: number, field: 'label' | 'stock', value: string | number) => {
     const newVariants = [...variants];
+    // @ts-ignore
     newVariants[index] = { ...newVariants[index], [field]: value };
     setVariants(newVariants);
   };
 
   const addVariant = () => {
-    setVariants([...variants, { label: '', stock: 0 }]);
+    setVariants([...variants, { label: '', stock: '' }]);
   };
 
   const removeVariant = (index: number) => {
@@ -143,7 +149,7 @@ export default function InventoryPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price) return;
+    if (!name || price === '') return;
     setLoading(true);
 
     let finalImageUrl = currentImageUrl;
@@ -152,11 +158,19 @@ export default function InventoryPage() {
         if (uploadedUrl) finalImageUrl = uploadedUrl;
     }
 
-    let finalVariants = variants;
+    let finalVariants: ItemVariant[] = [];
     if (!hasVariants) {
-        finalVariants = [{ label: 'Universal', stock: variants[0]?.stock || 0 }];
+        // Handle universal stock
+        const stockVal = variants[0]?.stock;
+        const numStock = stockVal === '' ? 0 : Number(stockVal);
+        finalVariants = [{ label: 'Universal', stock: numStock }];
     } else {
-        finalVariants = variants.filter(v => v.label.trim() !== '');
+        finalVariants = variants
+            .filter(v => v.label.trim() !== '')
+            .map(v => ({
+                label: v.label,
+                stock: v.stock === '' ? 0 : Number(v.stock)
+            }));
     }
 
     const itemToSave: Item = {
@@ -389,7 +403,7 @@ export default function InventoryPage() {
                                                 type="number" 
                                                 placeholder="Кол-во"
                                                 value={v.stock}
-                                                onChange={e => updateVariant(idx, 'stock', Number(e.target.value))}
+                                                onChange={e => updateVariant(idx, 'stock', e.target.value)}
                                                 className="w-24 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-white text-sm focus:border-primary outline-none font-mono"
                                            />
                                            <button 
@@ -414,13 +428,14 @@ export default function InventoryPage() {
                                    <span className="text-zinc-400 text-sm">Количество на складе</span>
                                    <input 
                                         type="number" 
-                                        value={variants[0]?.stock || 0}
+                                        value={variants[0]?.stock}
                                         onChange={e => {
                                             const newV = [...variants];
-                                            if (!newV[0]) newV[0] = { label: 'Universal', stock: 0 };
-                                            newV[0].stock = Number(e.target.value);
+                                            if (!newV[0]) newV[0] = { label: 'Universal', stock: '' };
+                                            newV[0].stock = e.target.value;
                                             setVariants(newV);
                                         }}
+                                        placeholder="0"
                                         className="w-24 bg-black border border-zinc-700 rounded-lg px-3 py-2 text-white font-mono text-right focus:border-primary outline-none"
                                    />
                                </div>

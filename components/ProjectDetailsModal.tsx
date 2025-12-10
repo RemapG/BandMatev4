@@ -168,6 +168,7 @@ export default function ProjectDetailsModal({ projectId, onClose }: ProjectDetai
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, taskId: string) => {
         setDraggedTaskId(taskId);
         e.dataTransfer.effectAllowed = 'move';
+        // Hide preview ghost if possible or style it? Browser default is fine.
     };
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -182,12 +183,19 @@ export default function ProjectDetailsModal({ projectId, onClose }: ProjectDetai
 
     // Mobile
     const touchItemRef = useRef<string | null>(null);
+    
     const handleTouchStart = (e: React.TouchEvent, taskId: string) => {
+        // Prevent default to avoid scrolling while dragging handle
+        // e.preventDefault(); // Note: passive listener issue might occur if we just preventDefault, but touch-action: none in CSS handles scrolling block.
         touchItemRef.current = taskId;
         setDraggedTaskId(taskId);
     };
+    
     const handleTouchMove = (e: React.TouchEvent) => {
         if (!touchItemRef.current) return;
+        // Prevent scrolling/selection
+        if (e.cancelable) e.preventDefault(); 
+        
         const touch = e.touches[0];
         const element = document.elementFromPoint(touch.clientX, touch.clientY);
         const taskRow = element?.closest('[data-task-id]');
@@ -206,6 +214,7 @@ export default function ProjectDetailsModal({ projectId, onClose }: ProjectDetai
             }
         }
     };
+    
     const handleTouchEnd = () => {
         setDraggedTaskId(null);
         touchItemRef.current = null;
@@ -448,16 +457,19 @@ export default function ProjectDetailsModal({ projectId, onClose }: ProjectDetai
                                <div 
                                   key={task.id} 
                                   data-task-id={task.id}
-                                  className={`bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-3 group transition-opacity duration-200 ${draggedTaskId === task.id ? 'opacity-30 border-dashed border-purple-500' : ''}`}
+                                  className={`bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-3 group transition-opacity duration-200 select-none ${draggedTaskId === task.id ? 'opacity-30 border-dashed border-purple-500' : ''}`}
                                   draggable
                                   onDragStart={(e) => handleDragStart(e, task.id)}
                                   onDragOver={handleDragOver}
                                   onDrop={(e) => handleDrop(e, task.id)}
-                                  onTouchStart={(e) => handleTouchStart(e, task.id)}
-                                  onTouchMove={handleTouchMove}
-                                  onTouchEnd={handleTouchEnd}
                                >
-                                   <div className="flex items-center justify-center text-zinc-700 cursor-grab active:cursor-grabbing touch-none" style={{ touchAction: 'none' }}>
+                                   <div 
+                                        className="flex items-center justify-center text-zinc-700 cursor-grab active:cursor-grabbing touch-none p-2 -m-2" 
+                                        style={{ touchAction: 'none' }}
+                                        onTouchStart={(e) => handleTouchStart(e, task.id)}
+                                        onTouchMove={handleTouchMove}
+                                        onTouchEnd={handleTouchEnd}
+                                   >
                                         <GripVertical size={20} />
                                    </div>
                                    <button onClick={() => handleToggleTask(task)} className="mt-1 shrink-0">
